@@ -7,6 +7,7 @@ import ContentInput from './components/ContentInput';
 import Achievements from './components/Achievements';
 import AudioPlayer from './components/AudioPlayer';
 import StudyAssistant from './components/StudyAssistant';
+import LoginGate from './components/LoginGate';
 
 const INITIAL_ACHIEVEMENTS: Achievement[] = [
   { id: 'first_hack', title: '初次入侵', description: '第一次成功用德语进行交流。', unlockedAt: null, icon: '🔓' },
@@ -19,32 +20,76 @@ const INITIAL_ACHIEVEMENTS: Achievement[] = [
 const GERMAN_LEVELS: GermanLevel[] = ['A1', 'A2', 'B1', 'B2'];
 
 const App: React.FC = () => {
-  const [session, setSession] = useState<SessionData>(() => {
-    const saved = localStorage.getItem('hacker_kid_session');
-    return saved ? JSON.parse(saved) : { 
-      messages: [], 
-      xp: 0, 
-      level: 1, 
-      germanLevel: 'A1',
-      unlockedAchievements: [] 
-    };
-  });
-  
-  const [achievements, setAchievements] = useState<Achievement[]>(() => {
-    const saved = localStorage.getItem('hacker_kid_achievements');
-    return saved ? JSON.parse(saved) : INITIAL_ACHIEVEMENTS;
+  // 核心用户状态
+  const [currentUser, setCurrentUser] = useState<string | null>(() => {
+    return localStorage.getItem('hacker_current_user');
   });
 
+  const [session, setSession] = useState<SessionData>({ 
+    messages: [], 
+    xp: 0, 
+    level: 1, 
+    germanLevel: 'A1',
+    unlockedAchievements: [] 
+  });
+  
+  const [achievements, setAchievements] = useState<Achievement[]>(INITIAL_ACHIEVEMENTS);
   const [isLoading, setIsLoading] = useState(false);
   const [currentAudio, setCurrentAudio] = useState<string | null>(null);
 
+  // 当用户切换或登录时，从该用户的专属存储空间加载数据
   useEffect(() => {
-    localStorage.setItem('hacker_kid_session', JSON.stringify(session));
-  }, [session]);
+    if (currentUser) {
+      const sessionKey = `hacker_session_${currentUser}`;
+      const achievementsKey = `hacker_achievements_${currentUser}`;
+      
+      const savedSession = localStorage.getItem(sessionKey);
+      const savedAchievements = localStorage.getItem(achievementsKey);
+
+      if (savedSession) {
+        setSession(JSON.parse(savedSession));
+      } else {
+        // 新用户初始化
+        setSession({ 
+          messages: [], 
+          xp: 0, 
+          level: 1, 
+          germanLevel: 'A1',
+          unlockedAchievements: [] 
+        });
+      }
+
+      if (savedAchievements) {
+        setAchievements(JSON.parse(savedAchievements));
+      } else {
+        setAchievements(INITIAL_ACHIEVEMENTS);
+      }
+    }
+  }, [currentUser]);
+
+  // 自动保存逻辑：始终保存到当前用户的专属 key
+  useEffect(() => {
+    if (currentUser) {
+      localStorage.setItem(`hacker_session_${currentUser}`, JSON.stringify(session));
+    }
+  }, [session, currentUser]);
 
   useEffect(() => {
-    localStorage.setItem('hacker_kid_achievements', JSON.stringify(achievements));
-  }, [achievements]);
+    if (currentUser) {
+      localStorage.setItem(`hacker_achievements_${currentUser}`, JSON.stringify(achievements));
+    }
+  }, [achievements, currentUser]);
+
+  const handleLoginSuccess = (username: string) => {
+    setCurrentUser(username);
+    localStorage.setItem('hacker_current_user', username);
+  };
+
+  const handleLogout = () => {
+    setCurrentUser(null);
+    localStorage.removeItem('hacker_current_user');
+    window.location.reload();
+  };
 
   const unlockAchievement = (id: string) => {
     if (session.unlockedAchievements.includes(id)) return;
@@ -119,17 +164,23 @@ const App: React.FC = () => {
     }
   };
 
+  if (!currentUser) {
+    return <LoginGate onLoginSuccess={handleLoginSuccess} />;
+  }
+
   return (
-    <div className="min-h-screen flex flex-col p-4 md:p-8 space-y-6 max-w-6xl mx-auto">
+    <div className="min-h-screen flex flex-col p-4 md:p-8 space-y-6 max-w-6xl mx-auto animate-in fade-in duration-700">
       {/* Header / HUD */}
       <header className="flex flex-col md:flex-row justify-between items-center border-b border-green-900/50 pb-4 gap-4">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center text-black font-bold text-2xl animate-pulse">
-            HK
+            {currentUser.slice(0, 2).toUpperCase()}
           </div>
           <div>
             <h1 className="text-2xl font-bold tracking-tighter text-green-400">德语小黑客 <span className="text-xs font-normal border border-green-800 px-1 rounded text-green-600">V2.0</span></h1>
-            <p className="text-xs text-green-700">状态: 已加密 // 连接: 稳定</p>
+            <p className="text-xs text-green-700 uppercase tracking-widest">
+              用户: <span className="text-green-500 font-bold">{currentUser}</span> // 状态: 已验证 // 节点: 01
+            </p>
           </div>
         </div>
 
@@ -150,21 +201,20 @@ const App: React.FC = () => {
         </div>
         
         <div className="flex gap-6 items-center">
+          <button 
+            onClick={handleLogout}
+            className="text-[10px] text-red-900 border border-red-900 px-2 py-1 rounded hover:bg-red-900 hover:text-white transition-all uppercase font-bold"
+          >
+            退出链路
+          </button>
           <div className="text-right">
             <div className="text-xs text-green-600 font-bold">经验 / 等级</div>
             <div className="text-xl font-bold text-green-400">{session.xp} <span className="text-sm text-green-700">级.{session.level}</span></div>
-            <div className="w-32 h-1 bg-green-900 mt-1">
-              <div 
-                className="h-full bg-green-500 transition-all duration-500" 
-                style={{ width: `${session.xp % 100}%` }}
-              ></div>
-            </div>
           </div>
         </div>
       </header>
 
       <main className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-6 overflow-hidden">
-        {/* Left Panel: Terminal */}
         <div className="lg:col-span-2 flex flex-col h-[60vh] lg:h-full min-h-[500px]">
           <HackerTerminal 
             messages={session.messages} 
@@ -176,7 +226,6 @@ const App: React.FC = () => {
           />
         </div>
 
-        {/* Right Panel: Tools & Assistant */}
         <div className="space-y-6 flex flex-col overflow-y-auto pr-1">
           <section className="bg-black/50 border border-blue-900/30 p-4 rounded-lg shadow-inner">
             <h2 className="text-sm font-bold text-blue-500 mb-4 flex items-center gap-2">
@@ -194,7 +243,7 @@ const App: React.FC = () => {
 
           <section className="bg-black/50 border border-green-900/30 p-4 rounded-lg flex-1">
             <h2 className="text-sm font-bold text-green-500 mb-4 flex items-center gap-2">
-              <span className="w-2 h-2 bg-green-500 rounded-full"></span> 成就勋章
+              <span className="w-2 h-2 bg-green-500 rounded-full"></span> 成就勋章 ({currentUser})
             </h2>
             <Achievements achievements={achievements} />
           </section>
@@ -204,7 +253,7 @@ const App: React.FC = () => {
       <AudioPlayer audioData={currentAudio} onEnded={() => setCurrentAudio(null)} />
       
       <footer className="text-center text-[10px] text-green-900 mt-4 opacity-50">
-        &copy; 2024 DEUTSCH HACKER PROJECT // 泰山模式已开启 // 选词侦测系统已就绪
+        &copy; 2024 DEUTSCH HACKER PROJECT // 系统安全受控 // 用户节点: {currentUser}
       </footer>
     </div>
   );
