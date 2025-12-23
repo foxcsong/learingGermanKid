@@ -34,7 +34,11 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
             headers: { "Content-Type": "application/json" }
         });
     } catch (e: any) {
-        return new Response(JSON.stringify({ error: e.message }), {
+        let errorMsg = e.message;
+        if (errorMsg.includes("no such table")) {
+            errorMsg = "数据库表未初始化。请在 D1 控制台运行 schema.sql 以创建 user_sessions 表。";
+        }
+        return new Response(JSON.stringify({ error: errorMsg }), {
             status: 500,
             headers: { "Content-Type": "application/json" }
         });
@@ -62,7 +66,11 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
             headers: { "Content-Type": "application/json" }
         });
     } catch (e: any) {
-        return new Response(JSON.stringify({ error: e.message }), {
+        let errorMsg = e.message;
+        if (errorMsg.includes("no such table")) {
+            errorMsg = "数据库表未初始化。请在 D1 控制台运行 schema.sql 以创建 user_sessions 表。";
+        }
+        return new Response(JSON.stringify({ error: errorMsg }), {
             status: 500,
             headers: { "Content-Type": "application/json" }
         });
