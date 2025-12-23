@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "sync": "git add . && git commit -m 'Update from local' && git push origin main"
   },
   "dependencies": {
     "react-dom": "^19.2.3",
