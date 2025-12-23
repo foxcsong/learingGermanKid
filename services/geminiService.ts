@@ -15,7 +15,8 @@ export class GeminiService {
     text: string, 
     history: { role: 'user' | 'model', parts: { text: string }[] }[],
     germanLevel: GermanLevel = 'A1',
-    imageBuffer?: string
+    imageBuffer?: string,
+    mimeType: string = "image/jpeg"
   ) {
     const ai = this.getAI();
     
@@ -32,11 +33,11 @@ export class GeminiService {
       CORE PROTOCOL:
       1. MISSION: Help the user learn German.
       2. FIREWALL: Reject non-German learning topics (weather, coding, general facts) with SEC_ERROR.
-      3. VISUAL INTEL MODE: If an image is provided, you are a "Visual Analyst".
-         - Identify ANY German text in the image.
-         - Explain the scene in German (matching level ${germanLevel}).
-         - If it's a document, summarize the key German keywords.
-         - Start your response with "[视觉情报分析完毕]" if it's based on an image.
+      3. VISUAL INTEL MODE: If an image or PDF is provided, you are a "Visual/Document Analyst".
+         - Identify ANY German text in the intelligence.
+         - Explain the content in German (matching level ${germanLevel}).
+         - If it's a scene, describe it. If it's a document, summarize the key German keywords.
+         - Start your response with "[情报分析完毕]" if it's based on an external file.
       4. DIFFICULTY: Match ${germanLevel} (${levelDescriptions[germanLevel]}).
       5. ONE-FIX RULE: Find exactly one error in user's text and explain it in 'geheimzauber'.
       
@@ -52,10 +53,12 @@ export class GeminiService {
     try {
       const parts: any[] = [{ text }];
       if (imageBuffer) {
+        // Strip data URL prefix if present
+        const cleanBase64 = imageBuffer.includes(',') ? imageBuffer.split(',')[1] : imageBuffer;
         parts.push({
           inlineData: {
-            mimeType: "image/jpeg",
-            data: imageBuffer
+            mimeType: mimeType,
+            data: cleanBase64
           }
         });
       }
