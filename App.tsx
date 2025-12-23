@@ -49,6 +49,7 @@ const App: React.FC = () => {
   const [currentAudio, setCurrentAudio] = useState<string | null>(null);
   const [syncStatus, setSyncStatus] = useState<'synced' | 'syncing' | 'error' | 'local'>('local');
   const [showMobileHistory, setShowMobileHistory] = useState(false);
+  const [lastSyncError, setLastSyncError] = useState<string | null>(null);
 
   const activeConversation = session.conversations.find(c => c.id === session.activeConversationId) || session.conversations[0];
 
@@ -88,7 +89,10 @@ const App: React.FC = () => {
           }
           setSyncStatus('local');
         }
-      }).catch(() => setSyncStatus('error'));
+      }).catch((err) => {
+        setSyncStatus('error');
+        setLastSyncError(err instanceof Error ? err.message : 'Unknown sync error');
+      });
 
       if (savedAchievements) {
         try {
@@ -301,18 +305,19 @@ const App: React.FC = () => {
             {currentUser.slice(0, 2).toUpperCase()}
           </div>
           <div>
-            <h1 className="text-2xl font-bold tracking-tighter text-green-400">德语小黑客 <span className="text-xs font-normal border border-green-800 px-1 rounded text-green-600">V2.0</span></h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-bold tracking-tighter text-green-400">德语小黑客 <span className="text-xs font-normal border border-green-800 px-1 rounded text-green-600">V2.0</span></h1>
+              {/* Mobile History Toggle - Integrated */}
+              <button
+                onClick={() => setShowMobileHistory(!showMobileHistory)}
+                className="lg:hidden p-1 border border-green-900 text-green-500 text-[10px] font-bold rounded bg-green-900/10"
+              >
+                [历史/History]
+              </button>
+            </div>
             <p className="text-xs text-green-700 uppercase tracking-widest">用户: <span className="text-green-500 font-bold">{currentUser}</span> // 节点: 01</p>
           </div>
         </div>
-
-        {/* Mobile History Toggle */}
-        <button
-          onClick={() => setShowMobileHistory(!showMobileHistory)}
-          className="lg:hidden px-4 py-2 border border-green-900 text-green-500 text-xs font-bold rounded hover:bg-green-900/20 transition-all uppercase"
-        >
-          {showMobileHistory ? '关闭历史 (Close)' : '历史记录 (History)'}
-        </button>
         <div className="flex bg-green-950/20 border border-green-900/50 rounded p-1">
           {GERMAN_LEVELS.map(l => (
             <button key={l} onClick={() => setSession(s => ({ ...s, germanLevel: l }))} className={`px-3 py-1 text-xs font-bold transition-all ${session.germanLevel === l ? 'bg-green-500 text-black shadow-[0_0_10px_rgba(34,197,94,0.5)]' : 'text-green-700 hover:text-green-400'}`}>{l}</button>
@@ -324,7 +329,11 @@ const App: React.FC = () => {
               <div className="text-[10px] text-green-900 font-bold uppercase tracking-widest">
                 {syncStatus === 'synced' && '● 链路已加密同步'}
                 {syncStatus === 'syncing' && '◌ 正在注入云端...'}
-                {syncStatus === 'error' && '× 链路同步故障'}
+                {syncStatus === 'error' && (
+                  <span className="text-red-900" title={lastSyncError || ''}>
+                    × 链路同步故障 {lastSyncError?.includes('bound') ? '(配置未完成)' : ''}
+                  </span>
+                )}
                 {syncStatus === 'local' && '○ 仅本地节点'}
               </div>
               <div className="text-xs text-green-600 font-bold">经验 / 等级</div>

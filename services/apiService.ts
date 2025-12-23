@@ -6,7 +6,12 @@ export class ApiService {
     async getSession(username: string): Promise<SessionData | null> {
         const response = await fetch(`${this.baseUrl}?username=${encodeURIComponent(username)}`);
         if (!response.ok) {
-            throw new Error(`Cloud fetch failed with status: ${response.status}`);
+            let errorMsg = `Cloud fetch failed: ${response.status}`;
+            try {
+                const errData = await response.json();
+                if (errData.error) errorMsg = errData.error;
+            } catch (e) { }
+            throw new Error(errorMsg);
         }
 
         const result = await response.json();

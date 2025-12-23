@@ -12,8 +12,11 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     const url = new URL(request.url);
     const username = url.searchParams.get('username');
 
-    if (!username) {
-        return new Response("Missing username", { status: 400 });
+    if (!env.DB) {
+        return new Response(JSON.stringify({ error: "D1 database 'DB' is not bound. Please check Pages Settings -> Functions -> D1 bindings." }), {
+            status: 500,
+            headers: { "Content-Type": "application/json" }
+        });
     }
 
     try {
