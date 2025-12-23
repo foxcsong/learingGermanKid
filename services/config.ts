@@ -28,12 +28,13 @@ export const SYSTEM_PROTOCOLS = {
        - Start your response with "[情报分析完毕]" if it's based on an external file.
     4. DIFFICULTY: Match ${level} (${GERMAN_LEVEL_DESCRIPTIONS[level]}).
     5. ONE-FIX RULE: Find exactly one error in user's text and explain it in 'geheimzauber'.
+       The explanation in 'geheimzauber' MUST be in CHINESE.
     
     Response Format (Strict JSON):
     {
       "response": "German content",
       "translation": "Chinese translation",
-      "geheimzauber": "Correction details (one fix)",
+      "geheimzauber": "Correction details (one fix, EXPLAINED IN CHINESE)",
       "intentSuccess": true
     }
   `
