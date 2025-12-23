@@ -22,6 +22,8 @@ const INITIAL_ACHIEVEMENTS: Achievement[] = [
 
 const GERMAN_LEVELS: GermanLevel[] = ['A1', 'A2', 'B1', 'B2'];
 
+const BUILD_VERSION = "2025.12.23.1825";
+
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<string | null>(() => {
     return localStorage.getItem('hacker_current_user');
@@ -320,7 +322,7 @@ const App: React.FC = () => {
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-bold tracking-tighter text-green-400">德语小黑客 <span className="text-xs font-normal border border-green-800 px-1 rounded text-green-600">V2.0</span></h1>
+              <h1 className="text-2xl font-bold tracking-tighter text-green-400">德语小黑客 <span className="text-[10px] font-normal border border-green-800 px-1 rounded text-green-700">{BUILD_VERSION}</span></h1>
               <button
                 onClick={() => window.location.reload()}
                 className="text-[8px] border border-green-900 px-1 text-green-800 rounded lg:hidden"
@@ -406,14 +408,18 @@ const App: React.FC = () => {
       </main>
       <AudioPlayer audioData={currentAudio} onEnded={() => setCurrentAudio(null)} />
 
-      {/* Mobile Floating History Button - Forced Visibility */}
-      <button
-        onClick={() => setShowMobileHistory(true)}
-        style={{ zIndex: 9999, display: 'flex' }}
-        className="lg:hidden fixed bottom-6 right-6 w-16 h-16 bg-green-500 text-black rounded-full shadow-[0_0_20px_rgba(34,197,94,0.8)] items-center justify-center font-bold text-[10px] border-4 border-black active:scale-90 transition-all uppercase text-center leading-none"
-      >
-        HISTORY<br />PORTAL
-      </button>
+      {/* Mobile Floating History Button - Enhanced Visibility */}
+      <div className="lg:hidden fixed bottom-6 right-6 z-[9999]">
+        <button
+          onClick={() => setShowMobileHistory(true)}
+          className="w-16 h-16 bg-green-500 text-black rounded-full shadow-[0_0_30px_rgba(34,197,94,1)] flex items-center justify-center font-black text-[10px] border-4 border-black active:scale-90 transition-all uppercase text-center leading-tight animate-bounce"
+        >
+          SYNC<br />PORTAL
+        </button>
+        {syncStatus === 'error' && (
+          <div className="absolute -top-2 -right-2 w-6 h-6 bg-red-600 rounded-full flex items-center justify-center text-white text-[10px] border-2 border-black animate-pulse">!</div>
+        )}
+      </div>
     </div>
   );
 };
