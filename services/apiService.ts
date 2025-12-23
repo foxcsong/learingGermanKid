@@ -4,19 +4,16 @@ export class ApiService {
     private baseUrl = "/api/session";
 
     async getSession(username: string): Promise<SessionData | null> {
-        try {
-            const response = await fetch(`${this.baseUrl}?username=${encodeURIComponent(username)}`);
-            if (!response.ok) return null;
-
-            const result = await response.json();
-            if (result.found && result.data) {
-                return JSON.parse(result.data);
-            }
-            return null;
-        } catch (error) {
-            console.error("Cloud fetch error:", error);
-            return null;
+        const response = await fetch(`${this.baseUrl}?username=${encodeURIComponent(username)}`);
+        if (!response.ok) {
+            throw new Error(`Cloud fetch failed with status: ${response.status}`);
         }
+
+        const result = await response.json();
+        if (result.found && result.data) {
+            return JSON.parse(result.data);
+        }
+        return null;
     }
 
     async saveSession(username: string, data: SessionData): Promise<boolean> {

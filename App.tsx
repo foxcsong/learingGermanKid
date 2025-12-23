@@ -48,6 +48,7 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [currentAudio, setCurrentAudio] = useState<string | null>(null);
   const [syncStatus, setSyncStatus] = useState<'synced' | 'syncing' | 'error' | 'local'>('local');
+  const [showMobileHistory, setShowMobileHistory] = useState(false);
 
   const activeConversation = session.conversations.find(c => c.id === session.activeConversationId) || session.conversations[0];
 
@@ -304,6 +305,14 @@ const App: React.FC = () => {
             <p className="text-xs text-green-700 uppercase tracking-widest">用户: <span className="text-green-500 font-bold">{currentUser}</span> // 节点: 01</p>
           </div>
         </div>
+
+        {/* Mobile History Toggle */}
+        <button
+          onClick={() => setShowMobileHistory(!showMobileHistory)}
+          className="lg:hidden px-4 py-2 border border-green-900 text-green-500 text-xs font-bold rounded hover:bg-green-900/20 transition-all uppercase"
+        >
+          {showMobileHistory ? '关闭历史 (Close)' : '历史记录 (History)'}
+        </button>
         <div className="flex bg-green-950/20 border border-green-900/50 rounded p-1">
           {GERMAN_LEVELS.map(l => (
             <button key={l} onClick={() => setSession(s => ({ ...s, germanLevel: l }))} className={`px-3 py-1 text-xs font-bold transition-all ${session.germanLevel === l ? 'bg-green-500 text-black shadow-[0_0_10px_rgba(34,197,94,0.5)]' : 'text-green-700 hover:text-green-400'}`}>{l}</button>
@@ -326,16 +335,28 @@ const App: React.FC = () => {
         </div>
       </header>
 
-      <main className="flex-1 grid grid-cols-1 lg:grid-cols-4 gap-6 overflow-hidden">
-        <div className="lg:col-span-1 hidden lg:flex flex-col overflow-hidden bg-black/30 border border-green-900/20 p-4 rounded-lg">
-          <h2 className="text-sm font-bold text-green-500 mb-4 flex items-center gap-2">
-            <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span> 历史追踪节点
-          </h2>
+      <main className="flex-1 grid grid-cols-1 lg:grid-cols-4 gap-6 overflow-hidden relative">
+        {/* History Sidebar - Responsive */}
+        <div className={`lg:col-span-1 ${showMobileHistory ? 'fixed inset-0 z-50 bg-black/95 p-6' : 'hidden'} lg:flex lg:relative lg:inset-auto lg:z-auto flex-col overflow-hidden bg-black/30 lg:border border-green-900/20 p-4 rounded-lg`}>
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-sm font-bold text-green-500 flex items-center gap-2">
+              <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span> 历史追踪节点
+            </h2>
+            {showMobileHistory && (
+              <button onClick={() => setShowMobileHistory(false)} className="text-green-900 hover:text-green-500">[关闭]</button>
+            )}
+          </div>
           <ConversationHistory
             conversations={session.conversations}
             activeId={session.activeConversationId}
-            onSwitch={handleSwitchConversation}
-            onNew={handleNewConversation}
+            onSwitch={(id) => {
+              handleSwitchConversation(id);
+              if (showMobileHistory) setShowMobileHistory(false);
+            }}
+            onNew={() => {
+              handleNewConversation();
+              if (showMobileHistory) setShowMobileHistory(false);
+            }}
             onDelete={handleDeleteConversation}
           />
         </div>
