@@ -1,0 +1,8 @@
+{
+  "name": "德语小黑客 (German Hacker Kid)",
+  "description": "An interactive German learning platform using the Tarzan Mode and One-Fix Rule to help kids learn naturally through 'hacking' content.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
