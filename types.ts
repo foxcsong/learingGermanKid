@@ -21,8 +21,16 @@ export interface Achievement {
   icon: string;
 }
 
-export interface SessionData {
+export interface Conversation {
+  id: string;
+  title: string;
   messages: Message[];
+  updatedAt: number;
+}
+
+export interface SessionData {
+  conversations: Conversation[];
+  activeConversationId: string;
   xp: number;
   level: number;
   germanLevel: GermanLevel;

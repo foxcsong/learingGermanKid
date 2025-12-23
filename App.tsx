@@ -9,6 +9,8 @@ import AudioPlayer from './components/AudioPlayer';
 import StudyAssistant from './components/StudyAssistant';
 import LoginGate from './components/LoginGate';
 
+import ConversationHistory from './components/ConversationHistory';
+
 const INITIAL_ACHIEVEMENTS: Achievement[] = [
   { id: 'first_hack', title: '初次入侵', description: '第一次成功用德语进行交流。', unlockedAt: null, icon: '🔓' },
   { id: 'spell_caster', title: '咒语师', description: '利用“秘密咒语”修正并提升了德语技能。', unlockedAt: null, icon: '🪄' },
@@ -24,28 +26,60 @@ const App: React.FC = () => {
     return localStorage.getItem('hacker_current_user');
   });
 
-  const [session, setSession] = useState<SessionData>({
-    messages: [],
-    xp: 0,
-    level: 1,
-    germanLevel: 'A1',
-    unlockedAchievements: []
+  const [session, setSession] = useState<SessionData>(() => {
+    const defaultConvId = Date.now().toString();
+    return {
+      conversations: [{
+        id: defaultConvId,
+        title: '新对话',
+        messages: [],
+        updatedAt: Date.now()
+      }],
+      activeConversationId: defaultConvId,
+      xp: 0,
+      level: 1,
+      germanLevel: 'A1',
+      unlockedAchievements: []
+    };
   });
 
   const [achievements, setAchievements] = useState<Achievement[]>(INITIAL_ACHIEVEMENTS);
   const [isLoading, setIsLoading] = useState(false);
   const [currentAudio, setCurrentAudio] = useState<string | null>(null);
 
+  const activeConversation = session.conversations.find(c => c.id === session.activeConversationId) || session.conversations[0];
+
   useEffect(() => {
     if (currentUser) {
       const sessionKey = `hacker_session_${currentUser}`;
       const achievementsKey = `hacker_achievements_${currentUser}`;
-      const savedSession = localStorage.getItem(sessionKey);
+      const savedSessionRaw = localStorage.getItem(sessionKey);
       const savedAchievements = localStorage.getItem(achievementsKey);
 
-      if (savedSession) {
+      if (savedSessionRaw) {
         try {
-          setSession(JSON.parse(savedSession));
+          const savedSession = JSON.parse(savedSessionRaw);
+
+          // 迁移逻辑：如果发现是旧版的 SessionData (直接由 messages 组成)
+          if (Array.isArray(savedSession.messages)) {
+            const legacyConvId = 'legacy_' + Date.now();
+            const migratedSession: SessionData = {
+              conversations: [{
+                id: legacyConvId,
+                title: '历史追踪',
+                messages: savedSession.messages,
+                updatedAt: Date.now()
+              }],
+              activeConversationId: legacyConvId,
+              xp: savedSession.xp || 0,
+              level: savedSession.level || 1,
+              germanLevel: savedSession.germanLevel || 'A1',
+              unlockedAchievements: savedSession.unlockedAchievements || []
+            };
+            setSession(migratedSession);
+          } else {
+            setSession(savedSession);
+          }
         } catch (e) {
           console.error("Failed to parse session", e);
         }
@@ -62,36 +96,35 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (currentUser) {
-      // 核心修复：防止 LocalStorage 溢出
-      // 我们只保留最后 30 条消息，且只有最后 3 条消息允许包含庞大的图片 Base64 数据
-      const messagesToSave = session.messages.slice(-30).map((msg, index, array) => {
-        const isRecentImage = index >= array.length - 3;
-        if (msg.image && !isRecentImage) {
-          return { ...msg, image: undefined }; // 清除旧消息中的图片数据以节省空间
-        }
-        return msg;
-      });
-
-      const sessionToSave = {
+      // 优化存储：清理旧消息中的图片以防止 localStorage 溢出
+      const sessionToSave: SessionData = {
         ...session,
-        messages: messagesToSave
+        conversations: session.conversations.map(conv => {
+          // 只保留每条对话中最后的 3 条包含图片的消息
+          const messagesToSave = conv.messages.slice(-30).map((msg, index, array) => {
+            const imageInRecent = index >= array.length - 3;
+            if (msg.image && !imageInRecent) {
+              return { ...msg, image: undefined };
+            }
+            return msg;
+          });
+          return { ...conv, messages: messagesToSave };
+        })
       };
 
       try {
         localStorage.setItem(`hacker_session_${currentUser}`, JSON.stringify(sessionToSave));
         localStorage.setItem(`hacker_achievements_${currentUser}`, JSON.stringify(achievements));
       } catch (e) {
-        console.warn("存储空间接近上限，正在紧急清理旧数据...");
-        // 极端情况下：清除所有图片数据
+        console.warn("Storage quota approaching limit, cleaning up...");
         const emergencySave = {
           ...sessionToSave,
-          messages: messagesToSave.map(m => ({ ...m, image: undefined }))
+          conversations: sessionToSave.conversations.map(c => ({
+            ...c,
+            messages: c.messages.map(m => ({ ...m, image: undefined }))
+          }))
         };
-        try {
-          localStorage.setItem(`hacker_session_${currentUser}`, JSON.stringify(emergencySave));
-        } catch (e2) {
-          console.error("严重存储故障：无法写入 localStorage");
-        }
+        localStorage.setItem(`hacker_session_${currentUser}`, JSON.stringify(emergencySave));
       }
     }
   }, [session, achievements, currentUser]);
@@ -117,6 +150,39 @@ const App: React.FC = () => {
     }));
   };
 
+  const handleNewConversation = () => {
+    const id = Date.now().toString();
+    const newConv = { id, title: '新任务', messages: [], updatedAt: Date.now() };
+    setSession(prev => ({
+      ...prev,
+      conversations: [...prev.conversations, newConv],
+      activeConversationId: id
+    }));
+  };
+
+  const handleSwitchConversation = (id: string) => {
+    setSession(prev => ({ ...prev, activeConversationId: id }));
+  };
+
+  const handleDeleteConversation = (id: string) => {
+    setSession(prev => {
+      const remaining = prev.conversations.filter(c => c.id !== id);
+      if (remaining.length === 0) {
+        const newId = Date.now().toString();
+        return {
+          ...prev,
+          conversations: [{ id: newId, title: '新任务', messages: [], updatedAt: Date.now() }],
+          activeConversationId: newId
+        };
+      }
+      return {
+        ...prev,
+        conversations: remaining,
+        activeConversationId: id === prev.activeConversationId ? remaining[0].id : prev.activeConversationId
+      };
+    });
+  };
+
   const handleSendMessage = async (text: string, image?: string, mimeType?: string) => {
     setIsLoading(true);
     const userMsg: Message = {
@@ -128,11 +194,20 @@ const App: React.FC = () => {
       timestamp: Date.now()
     };
 
-    const newMessages = [...session.messages, userMsg];
-    setSession(prev => ({ ...prev, messages: newMessages }));
+    const updatedMessages = [...activeConversation.messages, userMsg];
+
+    // Update local state first for responsiveness
+    setSession(prev => ({
+      ...prev,
+      conversations: prev.conversations.map(c =>
+        c.id === prev.activeConversationId
+          ? { ...c, messages: updatedMessages, updatedAt: Date.now(), title: c.title === '新对话' || c.title === '新任务' ? text.slice(0, 15) : c.title }
+          : c
+      )
+    }));
 
     try {
-      const history = newMessages.slice(-10).map(m => ({
+      const history = updatedMessages.slice(-10).map(m => ({
         role: m.role === 'user' ? 'user' as const : 'model' as const,
         parts: [{ text: m.text }]
       }));
@@ -160,7 +235,11 @@ const App: React.FC = () => {
 
       setSession(prev => ({
         ...prev,
-        messages: [...newMessages, aiMsg],
+        conversations: prev.conversations.map(c =>
+          c.id === prev.activeConversationId
+            ? { ...c, messages: [...updatedMessages, aiMsg], updatedAt: Date.now() }
+            : c
+        ),
         xp: prev.xp + (result.intentSuccess ? 20 : 5),
         level: Math.floor((prev.xp + 20) / 100) + 1
       }));
@@ -179,9 +258,14 @@ const App: React.FC = () => {
         text: errorText,
         timestamp: Date.now()
       };
+
       setSession(prev => ({
         ...prev,
-        messages: [...newMessages, errorMsg]
+        conversations: prev.conversations.map(c =>
+          c.id === prev.activeConversationId
+            ? { ...c, messages: [...updatedMessages, errorMsg], updatedAt: Date.now() }
+            : c
+        )
       }));
     } finally {
       setIsLoading(false);
@@ -191,7 +275,7 @@ const App: React.FC = () => {
   if (!currentUser) return <LoginGate onLoginSuccess={handleLoginSuccess} />;
 
   return (
-    <div className="min-h-screen flex flex-col p-4 md:p-8 space-y-6 max-w-6xl mx-auto animate-in fade-in duration-700">
+    <div className="min-h-screen flex flex-col p-4 md:p-8 space-y-6 max-w-[1400px] mx-auto animate-in fade-in duration-700">
       <header className="flex flex-col md:flex-row justify-between items-center border-b border-green-900/50 pb-4 gap-4">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center text-black font-bold text-2xl animate-pulse">
@@ -216,11 +300,25 @@ const App: React.FC = () => {
         </div>
       </header>
 
-      <main className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-6 overflow-hidden">
-        <div className="lg:col-span-2 flex flex-col h-[60vh] lg:h-full min-h-[500px]">
-          <HackerTerminal messages={session.messages} isLoading={isLoading} onSend={handleSendMessage} currentLevel={session.level} germanLevel={session.germanLevel} onPlayAudio={setCurrentAudio} />
+      <main className="flex-1 grid grid-cols-1 lg:grid-cols-4 gap-6 overflow-hidden">
+        <div className="lg:col-span-1 hidden lg:flex flex-col overflow-hidden bg-black/30 border border-green-900/20 p-4 rounded-lg">
+          <h2 className="text-sm font-bold text-green-500 mb-4 flex items-center gap-2">
+            <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span> 历史追踪节点
+          </h2>
+          <ConversationHistory
+            conversations={session.conversations}
+            activeId={session.activeConversationId}
+            onSwitch={handleSwitchConversation}
+            onNew={handleNewConversation}
+            onDelete={handleDeleteConversation}
+          />
         </div>
-        <div className="space-y-6 flex flex-col overflow-y-auto pr-1">
+
+        <div className="lg:col-span-2 flex flex-col h-[60vh] lg:h-full min-h-[500px]">
+          <HackerTerminal messages={activeConversation.messages} isLoading={isLoading} onSend={handleSendMessage} currentLevel={session.level} germanLevel={session.germanLevel} onPlayAudio={setCurrentAudio} />
+        </div>
+
+        <div className="lg:col-span-1 space-y-6 flex flex-col overflow-y-auto pr-1">
           <section className="bg-black/50 border border-blue-900/30 p-4 rounded-lg shadow-inner"><h2 className="text-sm font-bold text-blue-500 mb-4 flex items-center gap-2"><span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></span> 影子实验室</h2><StudyAssistant level={session.germanLevel} onPlayAudio={setCurrentAudio} /></section>
           <section className="bg-black/50 border border-green-900/30 p-4 rounded-lg"><h2 className="text-sm font-bold text-green-500 mb-4 flex items-center gap-2"><span className="w-2 h-2 bg-green-500 rounded-full"></span> 外部情报注入</h2><ContentInput onUpload={handleSendMessage} isDisabled={isLoading} /></section>
           <section className="bg-black/50 border border-green-900/30 p-4 rounded-lg flex-1"><h2 className="text-sm font-bold text-green-500 mb-4 flex items-center gap-2"><span className="w-2 h-2 bg-green-500 rounded-full"></span> 成就勋章</h2><Achievements achievements={achievements} /></section>
