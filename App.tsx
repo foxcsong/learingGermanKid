@@ -31,7 +31,11 @@ const App: React.FC = () => {
     // Migration: ensure username is lowercase for consistent sync
     if (saved && saved !== saved.toLowerCase()) {
       const lowered = saved.toLowerCase();
-      localStorage.setItem('hacker_current_user', lowered);
+      try {
+        localStorage.setItem('hacker_current_user', lowered);
+      } catch (e) {
+        console.error("[Storage] Failed to update current user", e);
+      }
       console.log(`[Migration] User ${saved} migrated to ${lowered}`);
       return lowered;
     }
@@ -140,17 +144,18 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (currentUser) {
-      // 优化存储：清理旧消息中的图片以防止 localStorage 溢出
+      // 优化存储：清理旧消息中的图片和语音数据，以防止 localStorage 溢出
       const sessionToSave: SessionData = {
         ...session,
         conversations: session.conversations.map(conv => {
-          // 只保留每条对话中最后的 3 条包含图片的消息
-          const messagesToSave = conv.messages.slice(-30).map((msg, index, array) => {
-            const imageInRecent = index >= array.length - 3;
-            if (msg.image && !imageInRecent) {
-              return { ...msg, image: undefined };
-            }
-            return msg;
+          // 只保留每条对话中最后的 3 条包含图片或语音的消息数据
+          const messagesToSave = conv.messages.slice(-50).map((msg, index, array) => {
+            const isRecent = index >= array.length - 3;
+            return {
+              ...msg,
+              image: (msg.image && isRecent) ? msg.image : undefined,
+              audioData: (msg.audioData && isRecent) ? msg.audioData : undefined
+            };
           });
           return { ...conv, messages: messagesToSave };
         })
@@ -160,15 +165,20 @@ const App: React.FC = () => {
         localStorage.setItem(`hacker_session_${currentUser}`, JSON.stringify(sessionToSave));
         localStorage.setItem(`hacker_achievements_${currentUser}`, JSON.stringify(achievements));
       } catch (e) {
-        console.warn("Storage quota approaching limit, cleaning up...");
-        const emergencySave = {
-          ...sessionToSave,
-          conversations: sessionToSave.conversations.map(c => ({
-            ...c,
-            messages: c.messages.map(m => ({ ...m, image: undefined }))
-          }))
-        };
-        localStorage.setItem(`hacker_session_${currentUser}`, JSON.stringify(emergencySave));
+        console.warn("[Storage] 缓存写入失败，尝试紧急清理...", e);
+        try {
+          const emergencySave = {
+            ...sessionToSave,
+            conversations: sessionToSave.conversations.map(c => ({
+              ...c,
+              messages: c.messages.map(m => ({ ...m, image: undefined, audioData: undefined }))
+            }))
+          };
+          localStorage.setItem(`hacker_session_${currentUser}`, JSON.stringify(emergencySave));
+        } catch (e2) {
+          console.error("[Storage] 紧急清理后仍无法写入:", e2);
+          setLastSyncError("本地存储已满且无法自动清理。请点击登录页面的 [CLEAN_CACHE] 按钮手动重置。");
+        }
       }
     }
   }, [session, achievements, currentUser]);

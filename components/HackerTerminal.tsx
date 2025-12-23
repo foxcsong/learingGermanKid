@@ -55,9 +55,17 @@ const HackerTerminal: React.FC<HackerTerminalProps> = ({
     } else { setSelection(null); setQuickIntel(null); }
   };
 
+  const recordingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   const toggleListening = async () => {
     if (isListening) {
-      if (mediaRecorderRef.current) mediaRecorderRef.current.stop();
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+        mediaRecorderRef.current.stop();
+      }
+      if (recordingTimeoutRef.current) {
+        clearTimeout(recordingTimeoutRef.current);
+        recordingTimeoutRef.current = null;
+      }
       setIsListening(false);
     } else {
       try {
@@ -78,21 +86,34 @@ const HackerTerminal: React.FC<HackerTerminalProps> = ({
         };
 
         recorder.onstop = () => {
-          const audioBlob = new Blob(chunksRef.current, { type: mimeType });
-          const reader = new FileReader();
-          reader.onloadend = () => {
-            const base64 = reader.result?.toString();
-            if (base64) {
-              // Send back to App.tsx with audio mime type
-              onSend("", base64, mimeType);
-            }
-          };
-          reader.readAsDataURL(audioBlob);
+          if (chunksRef.current.length > 0) {
+            const audioBlob = new Blob(chunksRef.current, { type: mimeType });
+            const reader = new FileReader();
+            reader.onloadend = () => {
+              const base64 = reader.result?.toString();
+              if (base64) {
+                // Send back to App.tsx with audio mime type
+                onSend("", base64, mimeType);
+              }
+            };
+            reader.readAsDataURL(audioBlob);
+          }
           stream.getTracks().forEach(track => track.stop());
+          setIsListening(false);
         };
 
         recorder.start();
         setIsListening(true);
+
+        // 20秒自动停止保护，防止产生过大文件导致内存/存储崩溃
+        recordingTimeoutRef.current = setTimeout(() => {
+          if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+            console.log("[Voice] 达到录音时长上限，自动停止。");
+            mediaRecorderRef.current.stop();
+            setIsListening(false);
+          }
+        }, 20000);
+
       } catch (err) {
         console.error("麦克风启动失败:", err);
         alert("无法访问麦克风，请检查权限。");
