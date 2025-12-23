@@ -10,6 +10,7 @@ import StudyAssistant from './components/StudyAssistant';
 import LoginGate from './components/LoginGate';
 
 import ConversationHistory from './components/ConversationHistory';
+import { api } from './services/apiService';
 
 const INITIAL_ACHIEVEMENTS: Achievement[] = [
   { id: 'first_hack', title: '初次入侵', description: '第一次成功用德语进行交流。', unlockedAt: null, icon: '🔓' },
@@ -46,6 +47,7 @@ const App: React.FC = () => {
   const [achievements, setAchievements] = useState<Achievement[]>(INITIAL_ACHIEVEMENTS);
   const [isLoading, setIsLoading] = useState(false);
   const [currentAudio, setCurrentAudio] = useState<string | null>(null);
+  const [syncStatus, setSyncStatus] = useState<'synced' | 'syncing' | 'error' | 'local'>('local');
 
   const activeConversation = session.conversations.find(c => c.id === session.activeConversationId) || session.conversations[0];
 
@@ -56,34 +58,37 @@ const App: React.FC = () => {
       const savedSessionRaw = localStorage.getItem(sessionKey);
       const savedAchievements = localStorage.getItem(achievementsKey);
 
-      if (savedSessionRaw) {
-        try {
-          const savedSession = JSON.parse(savedSessionRaw);
-
-          // 迁移逻辑：如果发现是旧版的 SessionData (直接由 messages 组成)
-          if (Array.isArray(savedSession.messages)) {
-            const legacyConvId = 'legacy_' + Date.now();
-            const migratedSession: SessionData = {
-              conversations: [{
-                id: legacyConvId,
-                title: '历史追踪',
-                messages: savedSession.messages,
-                updatedAt: Date.now()
-              }],
-              activeConversationId: legacyConvId,
-              xp: savedSession.xp || 0,
-              level: savedSession.level || 1,
-              germanLevel: savedSession.germanLevel || 'A1',
-              unlockedAchievements: savedSession.unlockedAchievements || []
-            };
-            setSession(migratedSession);
-          } else {
-            setSession(savedSession);
+      // 1. 同步云端数据 (Cloud Sync)
+      setSyncStatus('syncing');
+      api.getSession(currentUser).then(cloudSession => {
+        if (cloudSession) {
+          console.log("Cloud session restored.");
+          setSession(cloudSession);
+          setSyncStatus('synced');
+        } else {
+          // 2. 如果云端没有，尝试从本地恢复
+          if (savedSessionRaw) {
+            try {
+              const savedSession = JSON.parse(savedSessionRaw);
+              if (Array.isArray(savedSession.messages)) {
+                // ... (迁移逻辑)
+                const legacyConvId = 'legacy_' + Date.now();
+                setSession({
+                  conversations: [{ id: legacyConvId, title: '历史追踪', messages: savedSession.messages, updatedAt: Date.now() }],
+                  activeConversationId: legacyConvId,
+                  xp: savedSession.xp || 0, level: savedSession.level || 1, germanLevel: savedSession.germanLevel || 'A1', unlockedAchievements: savedSession.unlockedAchievements || []
+                });
+              } else {
+                setSession(savedSession);
+              }
+            } catch (e) {
+              console.error("Failed to parse session", e);
+            }
           }
-        } catch (e) {
-          console.error("Failed to parse session", e);
+          setSyncStatus('local');
         }
-      }
+      }).catch(() => setSyncStatus('error'));
+
       if (savedAchievements) {
         try {
           setAchievements(JSON.parse(savedAchievements));
@@ -93,6 +98,19 @@ const App: React.FC = () => {
       }
     }
   }, [currentUser]);
+
+  // 云端同步保存 (Debounced Cloud Save)
+  useEffect(() => {
+    if (!currentUser || syncStatus === 'syncing') return;
+
+    const timer = setTimeout(async () => {
+      setSyncStatus('syncing');
+      const success = await api.saveSession(currentUser, session);
+      setSyncStatus(success ? 'synced' : 'error');
+    }, 2000); // 延迟 2 秒保存以减少 API 调用
+
+    return () => clearTimeout(timer);
+  }, [session, currentUser]);
 
   useEffect(() => {
     if (currentUser) {
@@ -292,10 +310,18 @@ const App: React.FC = () => {
           ))}
         </div>
         <div className="flex gap-6 items-center">
-          <button onClick={handleLogout} className="text-[10px] text-red-900 border border-red-900 px-2 py-1 rounded hover:bg-red-900 hover:text-white transition-all uppercase font-bold">退出链路</button>
-          <div className="text-right">
-            <div className="text-xs text-green-600 font-bold">经验 / 等级</div>
-            <div className="text-xl font-bold text-green-400">{session.xp} <span className="text-sm text-green-700">级.{session.level}</span></div>
+          <div className="text-right flex items-center gap-2">
+            <div>
+              <div className="text-[10px] text-green-900 font-bold uppercase tracking-widest">
+                {syncStatus === 'synced' && '● 链路已加密同步'}
+                {syncStatus === 'syncing' && '◌ 正在注入云端...'}
+                {syncStatus === 'error' && '× 链路同步故障'}
+                {syncStatus === 'local' && '○ 仅本地节点'}
+              </div>
+              <div className="text-xs text-green-600 font-bold">经验 / 等级</div>
+              <div className="text-xl font-bold text-green-400">{session.xp} <span className="text-sm text-green-700">级.{session.level}</span></div>
+            </div>
+            <button onClick={handleLogout} className="text-[10px] text-red-900 border border-red-900 px-2 py-1 rounded hover:bg-red-900 hover:text-white transition-all uppercase font-bold">退出链路</button>
           </div>
         </div>
       </header>
