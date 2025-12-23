@@ -8,9 +8,10 @@ export class GeminiService {
     // 使用 Vite 规范的环境变量
     const apiKey = (import.meta as any).env[GEMINI_CONFIG.API_KEY_ENV_VAR];
     if (!apiKey) {
-      console.warn(`MISSING_INTEL: ${GEMINI_CONFIG.API_KEY_ENV_VAR} is not defined in environments.`);
+      console.error(`AI_AUTH_ERROR: ${GEMINI_CONFIG.API_KEY_ENV_VAR} is missing! AI functions will fail. Please check your Cloudflare Pages environment variables.`);
+      return null;
     }
-    return new GoogleGenAI({ apiKey: apiKey || '' });
+    return new GoogleGenAI({ apiKey });
   }
 
   async processInput(
@@ -21,6 +22,8 @@ export class GeminiService {
     mimeType: string = "image/jpeg"
   ) {
     const ai = this.getAI();
+    if (!ai) throw new Error("API_KEY_MISSING");
+
     const systemInstruction = SYSTEM_PROTOCOLS.HACKER_BUDDY(germanLevel);
 
     try {

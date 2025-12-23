@@ -24,14 +24,14 @@ const App: React.FC = () => {
     return localStorage.getItem('hacker_current_user');
   });
 
-  const [session, setSession] = useState<SessionData>({ 
-    messages: [], 
-    xp: 0, 
-    level: 1, 
+  const [session, setSession] = useState<SessionData>({
+    messages: [],
+    xp: 0,
+    level: 1,
     germanLevel: 'A1',
-    unlockedAchievements: [] 
+    unlockedAchievements: []
   });
-  
+
   const [achievements, setAchievements] = useState<Achievement[]>(INITIAL_ACHIEVEMENTS);
   const [isLoading, setIsLoading] = useState(false);
   const [currentAudio, setCurrentAudio] = useState<string | null>(null);
@@ -138,7 +138,7 @@ const App: React.FC = () => {
       }));
 
       const result = await gemini.processInput(text, history, session.germanLevel, image, mimeType);
-      
+
       if (image) unlockAchievement('visual_analyzer');
       if (result.intentSuccess) unlockAchievement('first_hack');
       if (result.geheimzauber) unlockAchievement('spell_caster');
@@ -166,11 +166,17 @@ const App: React.FC = () => {
       }));
     } catch (error) {
       console.error("AI 响应异常:", error);
-      // 错误处理：向终端发送错误信息
+
+      let errorText = "SEC_ERROR: 链路不稳定，情报解析中断。请尝试重新注入。 (可能是文件过大或网络超时)";
+
+      if (error instanceof Error && error.message === "API_KEY_MISSING") {
+        errorText = "SEC_ERROR: 身份验证失败。请检查 Cloudflare Pages 的 VITE_GEMINI_API_KEY 环境变量是否已设置，并重新部署项目。";
+      }
+
       const errorMsg: Message = {
         id: (Date.now() + 2).toString(),
         role: 'ai',
-        text: "SEC_ERROR: 链路不稳定，情报解析中断。请尝试重新注入。 (可能是文件过大或网络超时)",
+        text: errorText,
         timestamp: Date.now()
       };
       setSession(prev => ({
@@ -198,7 +204,7 @@ const App: React.FC = () => {
         </div>
         <div className="flex bg-green-950/20 border border-green-900/50 rounded p-1">
           {GERMAN_LEVELS.map(l => (
-            <button key={l} onClick={() => setSession(s => ({...s, germanLevel: l}))} className={`px-3 py-1 text-xs font-bold transition-all ${session.germanLevel === l ? 'bg-green-500 text-black shadow-[0_0_10px_rgba(34,197,94,0.5)]' : 'text-green-700 hover:text-green-400'}`}>{l}</button>
+            <button key={l} onClick={() => setSession(s => ({ ...s, germanLevel: l }))} className={`px-3 py-1 text-xs font-bold transition-all ${session.germanLevel === l ? 'bg-green-500 text-black shadow-[0_0_10px_rgba(34,197,94,0.5)]' : 'text-green-700 hover:text-green-400'}`}>{l}</button>
           ))}
         </div>
         <div className="flex gap-6 items-center">
