@@ -60,15 +60,16 @@ const App: React.FC = () => {
       const savedSessionRaw = localStorage.getItem(sessionKey);
       const savedAchievements = localStorage.getItem(achievementsKey);
 
-      // 1. 同步云端数据 (Cloud Sync)
       setSyncStatus('syncing');
+      console.log(`[Sync] Initiating cloud sync for user: ${currentUser}`);
       api.getSession(currentUser).then(cloudSession => {
         if (cloudSession) {
-          console.log("Cloud session restored.");
+          console.log("[Sync] Cloud session retrieved successfully.");
           setSession(cloudSession);
           setSyncStatus('synced');
         } else {
-          // 2. 如果云端没有，尝试从本地恢复
+          console.log("[Sync] No cloud session found, staying local.");
+          // ... (keep current behavior)
           if (savedSessionRaw) {
             try {
               const savedSession = JSON.parse(savedSessionRaw);
@@ -307,6 +308,12 @@ const App: React.FC = () => {
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-2xl font-bold tracking-tighter text-green-400">德语小黑客 <span className="text-xs font-normal border border-green-800 px-1 rounded text-green-600">V2.0</span></h1>
+              <button
+                onClick={() => window.location.reload()}
+                className="text-[8px] border border-green-900 px-1 text-green-800 rounded lg:hidden"
+              >
+                刷新链路 (Refresh)
+              </button>
             </div>
             <p className="text-xs text-green-700 uppercase tracking-widest">用户: <span className="text-green-500 font-bold">{currentUser}</span> // 节点: 01</p>
           </div>
@@ -378,12 +385,13 @@ const App: React.FC = () => {
       </main>
       <AudioPlayer audioData={currentAudio} onEnded={() => setCurrentAudio(null)} />
 
-      {/* Mobile Floating History Button */}
+      {/* Mobile Floating History Button - Forced Visibility */}
       <button
         onClick={() => setShowMobileHistory(true)}
-        className="lg:hidden fixed bottom-6 right-6 w-14 h-14 bg-green-500 text-black rounded-full shadow-[0_0_20px_rgba(34,197,94,0.5)] flex items-center justify-center font-bold text-xs z-40 border-2 border-green-400 active:scale-95 transition-all"
+        style={{ zIndex: 9999, display: 'flex' }}
+        className="lg:hidden fixed bottom-6 right-6 w-16 h-16 bg-green-500 text-black rounded-full shadow-[0_0_20px_rgba(34,197,94,0.8)] items-center justify-center font-bold text-[10px] border-4 border-black active:scale-90 transition-all uppercase text-center leading-none"
       >
-        HISTORY
+        HISTORY<br />PORTAL
       </button>
     </div>
   );
