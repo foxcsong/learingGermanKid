@@ -22,7 +22,7 @@ const INITIAL_ACHIEVEMENTS: Achievement[] = [
 
 const GERMAN_LEVELS: GermanLevel[] = ['A1', 'A2', 'B1', 'B2'];
 
-const BUILD_VERSION = "2025.12.23.1825";
+const BUILD_VERSION = "2025.12.23.1930";
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<string | null>(() => {
@@ -66,46 +66,42 @@ const App: React.FC = () => {
       setSyncStatus('syncing');
       console.log(`[Sync] 正在从云端调取用户 ${currentUser} 的档案...`);
 
-      api.getSession(currentUser).then(cloudSession => {
+      api.getSession(currentUser).then(async (cloudSession) => {
         if (cloudSession) {
-          console.log("[Sync] 云端数据存在，正在同步到本地...");
+          console.log("[Sync] 云端数据发现，正在覆盖本地节点...");
           setSession(cloudSession);
           setSyncStatus('synced');
         } else {
-          console.log("[Sync] 云端无数据，检查本地缓存...");
+          console.log("[Sync] 云端无存档，检查本地记录...");
           if (savedSessionRaw) {
             try {
               const localData = JSON.parse(savedSessionRaw);
               let migrated: SessionData;
-
               if (Array.isArray(localData.messages)) {
-                console.log("[Sync] 正在迁移旧版消息格式...");
                 const legacyId = 'legacy_' + Date.now();
                 migrated = {
-                  conversations: [{ id: legacyId, title: '历史追踪', messages: localData.messages, updatedAt: Date.now() }],
+                  conversations: [{ id: legacyId, title: '遗留存档', messages: localData.messages, updatedAt: Date.now() }],
                   activeConversationId: legacyId,
                   xp: localData.xp || 0, level: localData.level || 1, germanLevel: localData.germanLevel || 'A1', unlockedAchievements: localData.unlockedAchievements || []
                 };
               } else {
                 migrated = localData;
               }
-
               setSession(migrated);
-              setSyncStatus('local');
 
-              // 关键：提示用户上传
-              console.log("[Sync] 本地数据已准备好，建议点击指示灯上传到云端。");
+              // 自动上云：如果本地有数据但云端没有，主动建立云端副本
+              console.log("[Sync] 云端为空但本地有记录，正在建立初始云端副本...");
+              setSyncStatus('syncing');
+              const success = await api.saveSession(currentUser, migrated);
+              setSyncStatus(success ? 'synced' : 'local');
             } catch (e) {
-              console.error("[Sync] 本地缓存解析失败:", e);
               setSyncStatus('local');
             }
           } else {
-            console.log("[Sync] 本地无数据，保持初始状态。");
             setSyncStatus('local');
           }
         }
       }).catch((err) => {
-        console.error("[Sync] 云端通讯失败:", err);
         setSyncStatus('error');
         setLastSyncError(err instanceof Error ? err.message : String(err));
       });
@@ -416,16 +412,24 @@ const App: React.FC = () => {
       </main>
       <AudioPlayer audioData={currentAudio} onEnded={() => setCurrentAudio(null)} />
 
-      {/* Mobile Floating History Button - Enhanced Visibility */}
+      {/* Mobile Sync Notification */}
+      {syncStatus === 'syncing' && (
+        <div className="lg:hidden fixed top-0 left-0 w-full bg-green-500 text-black text-[10px] py-1 text-center font-bold z-[10000] animate-pulse">
+          CLOUD_SYNCING: 正在与云端对齐数据...
+        </div>
+      )}
+
+      {/* Mobile Floating History Button - Pulse effect */}
       <div className="lg:hidden fixed bottom-6 right-6 z-[9999]">
         <button
           onClick={() => setShowMobileHistory(true)}
-          className="w-16 h-16 bg-green-500 text-black rounded-full shadow-[0_0_30px_rgba(34,197,94,1)] flex items-center justify-center font-black text-[10px] border-4 border-black active:scale-90 transition-all uppercase text-center leading-tight animate-bounce"
+          className={`w-16 h-16 rounded-full shadow-[0_0_40px_rgba(34,197,94,0.6)] flex items-center justify-center font-black text-[10px] border-4 border-black active:scale-90 transition-all uppercase text-center leading-tight ${syncStatus === 'synced' ? 'bg-green-500 text-black' : 'bg-green-900 text-green-500 grayscale'
+            }`}
         >
-          SYNC<br />PORTAL
+          HISTORY<br />PORTAL
         </button>
         {syncStatus === 'error' && (
-          <div className="absolute -top-2 -right-2 w-6 h-6 bg-red-600 rounded-full flex items-center justify-center text-white text-[10px] border-2 border-black animate-pulse">!</div>
+          <div className="absolute -top-1 -right-1 w-6 h-6 bg-red-600 rounded-full flex items-center justify-center text-white text-[10px] border-2 border-black animate-shake">!</div>
         )}
       </div>
     </div>
