@@ -60,37 +60,50 @@ const App: React.FC = () => {
       const savedSessionRaw = localStorage.getItem(sessionKey);
       const savedAchievements = localStorage.getItem(achievementsKey);
 
+      // 1. 同步云端数据 (Cloud Sync)
       setSyncStatus('syncing');
-      console.log(`[Sync] Initiating cloud sync for user: ${currentUser}`);
+      console.log(`[Sync] 正在从云端调取用户 ${currentUser} 的档案...`);
+
       api.getSession(currentUser).then(cloudSession => {
         if (cloudSession) {
-          console.log("[Sync] Cloud session retrieved successfully.");
+          console.log("[Sync] 成功载入云端档案，正在同步本地状态。");
           setSession(cloudSession);
           setSyncStatus('synced');
         } else {
-          console.log("[Sync] No cloud session found, staying local.");
-          // ... (keep current behavior)
+          console.log("[Sync] 云端未发现档案，将尝试使用本地缓存。");
+
+          let initialSession = session;
           if (savedSessionRaw) {
             try {
               const savedSession = JSON.parse(savedSessionRaw);
               if (Array.isArray(savedSession.messages)) {
-                // ... (迁移逻辑)
+                // 迁移遗留数据
                 const legacyConvId = 'legacy_' + Date.now();
-                setSession({
+                initialSession = {
                   conversations: [{ id: legacyConvId, title: '历史追踪', messages: savedSession.messages, updatedAt: Date.now() }],
                   activeConversationId: legacyConvId,
                   xp: savedSession.xp || 0, level: savedSession.level || 1, germanLevel: savedSession.germanLevel || 'A1', unlockedAchievements: savedSession.unlockedAchievements || []
-                });
+                };
               } else {
-                setSession(savedSession);
+                initialSession = savedSession;
               }
+              setSession(initialSession);
+
+              // 关键修复：如果云端没有但本地有，主动上传一次
+              console.log("[Sync] 正在将本地数据初始化到云端...");
+              api.saveSession(currentUser, initialSession).then(success => {
+                setSyncStatus(success ? 'synced' : 'local');
+              });
             } catch (e) {
-              console.error("Failed to parse session", e);
+              console.error("[Sync] 本地数据解析失败:", e);
+              setSyncStatus('local');
             }
+          } else {
+            setSyncStatus('local');
           }
-          setSyncStatus('local');
         }
       }).catch((err) => {
+        console.error("[Sync] 通讯链路异常:", err);
         setSyncStatus('error');
         setLastSyncError(err instanceof Error ? err.message : 'Unknown sync error');
       });
@@ -328,7 +341,15 @@ const App: React.FC = () => {
             <div>
               <div
                 className="text-[10px] text-green-900 font-bold uppercase tracking-widest cursor-pointer hover:text-green-500 transition-colors"
-                onClick={() => lastSyncError && alert(`同步错误详情:\n${lastSyncError}\n\n建议排查：\n1. Cloudflare Pages 绑定了 D1 吗？\n2. 绑定名是 DB 吗？\n3. 修改完绑定重新部署了吗？`)}
+                onClick={() => {
+                  if (syncStatus === 'syncing') return;
+                  setSyncStatus('syncing');
+                  api.saveSession(currentUser, session).then((success) => {
+                    setSyncStatus(success ? 'synced' : 'error');
+                    if (!success) alert("同步失败，请点击红字查看原因。");
+                    else alert("云端同步成功！现在可以在手机端刷新查看了。");
+                  });
+                }}
               >
                 {syncStatus === 'synced' && '● 链路已加密同步'}
                 {syncStatus === 'syncing' && <span className="animate-pulse">◌ 正在注入云端...</span>}
@@ -337,7 +358,7 @@ const App: React.FC = () => {
                     × 链路同步故障 (点击查看)
                   </span>
                 )}
-                {syncStatus === 'local' && '○ 仅本地节点'}
+                {syncStatus === 'local' && '○ 仅本地节点 (点此上传)'}
               </div>
               <div className="text-xs text-green-600 font-bold">经验 / 等级</div>
               <div className="text-xl font-bold text-green-400">{session.xp} <span className="text-sm text-green-700">级.{session.level}</span></div>
