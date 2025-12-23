@@ -9,31 +9,28 @@ interface AudioPlayerProps {
 const AudioPlayer: React.FC<AudioPlayerProps> = ({ audioData, onEnded }) => {
   const audioContextRef = useRef<AudioContext | null>(null);
 
-  function decode(base64: string) {
+  function base64ToUint8Array(base64: string) {
     const binaryString = atob(base64);
-    const len = binaryString.length;
-    const bytes = new Uint8Array(len);
-    for (let i = 0; i < len; i++) {
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
       bytes[i] = binaryString.charCodeAt(i);
     }
     return bytes;
   }
 
-  async function decodeAudioData(
+  // Fallback for Gemini's raw 16-bit PCM (no header)
+  async function decodeRawPCM(
     data: Uint8Array,
     ctx: AudioContext,
-    sampleRate: number,
-    numChannels: number,
+    sampleRate: number = 24000
   ): Promise<AudioBuffer> {
     const dataInt16 = new Int16Array(data.buffer);
-    const frameCount = dataInt16.length / numChannels;
+    const numChannels = 1;
+    const frameCount = dataInt16.length;
     const buffer = ctx.createBuffer(numChannels, frameCount, sampleRate);
-
-    for (let channel = 0; channel < numChannels; channel++) {
-      const channelData = buffer.getChannelData(channel);
-      for (let i = 0; i < frameCount; i++) {
-        channelData[i] = dataInt16[i * numChannels + channel] / 32768.0;
-      }
+    const channelData = buffer.getChannelData(0);
+    for (let i = 0; i < frameCount; i++) {
+      channelData[i] = dataInt16[i] / 32768.0;
     }
     return buffer;
   }
@@ -42,10 +39,9 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ audioData, onEnded }) => {
     if (!audioData) return;
 
     const playAudio = async () => {
+      // Create context if not exists. No fixed sampleRate here to allow standard files to play naturally.
       if (!audioContextRef.current) {
-        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({
-          sampleRate: 24000
-        });
+        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
       }
 
       const ctx = audioContextRef.current;
@@ -54,15 +50,26 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ audioData, onEnded }) => {
       }
 
       try {
-        const bytes = decode(audioData);
-        const audioBuffer = await decodeAudioData(bytes, ctx, 24000, 1);
+        const bytes = base64ToUint8Array(audioData);
+        let audioBuffer: AudioBuffer;
+
+        try {
+          // 优先尝试原生解码 (适合录音生成的 WebM/MP4 等带 Header 的文件)
+          // decodeAudioData needs an ArrayBuffer
+          audioBuffer = await ctx.decodeAudioData(bytes.buffer.slice(0));
+        } catch (nativeError) {
+          // 如果原生解码失败，退守到 PCM 模式 (适合 Gemini AI 返回的原始数据)
+          // console.log("[Audio] Native decode failed, falling back to raw PCM mode...");
+          audioBuffer = await decodeRawPCM(bytes, ctx, 24000);
+        }
+
         const source = ctx.createBufferSource();
         source.buffer = audioBuffer;
         source.connect(ctx.destination);
         source.onended = onEnded;
         source.start(0);
       } catch (error) {
-        console.error("Audio playback error:", error);
+        console.error("Audio playback fatal error:", error);
         onEnded();
       }
     };
