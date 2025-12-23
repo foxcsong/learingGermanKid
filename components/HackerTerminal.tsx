@@ -13,11 +13,11 @@ interface HackerTerminalProps {
   onPlayAudio: (base64: string) => void;
 }
 
-const HackerTerminal: React.FC<HackerTerminalProps> = ({ 
-  messages, 
-  isLoading, 
-  onSend, 
-  currentLevel, 
+const HackerTerminal: React.FC<HackerTerminalProps> = ({
+  messages,
+  isLoading,
+  onSend,
+  currentLevel,
   germanLevel,
   onPlayAudio
 }) => {
@@ -27,25 +27,16 @@ const HackerTerminal: React.FC<HackerTerminalProps> = ({
   const [quickIntel, setQuickIntel] = useState<string | null>(null);
   const [isQuickIntelLoading, setIsQuickIntelLoading] = useState(false);
   const [showIntelCard, setShowIntelCard] = useState(false);
-  
+
   const scrollRef = useRef<HTMLDivElement>(null);
-  const recognitionRef = useRef<any>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
 
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages, isLoading]);
-
-  useEffect(() => {
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (SpeechRecognition) {
-      recognitionRef.current = new SpeechRecognition();
-      recognitionRef.current.lang = 'de-DE';
-      recognitionRef.current.onresult = (event: any) => setInput(event.results[0][0].transcript);
-      recognitionRef.current.onend = () => setIsListening(false);
-    }
-  }, []);
 
   const handleMouseUp = async (e: React.MouseEvent, msgContext: string) => {
     const sel = window.getSelection();
@@ -64,9 +55,49 @@ const HackerTerminal: React.FC<HackerTerminalProps> = ({
     } else { setSelection(null); setQuickIntel(null); }
   };
 
-  const toggleListening = () => {
-    if (isListening) recognitionRef.current?.stop();
-    else { setIsListening(true); recognitionRef.current?.start(); }
+  const toggleListening = async () => {
+    if (isListening) {
+      if (mediaRecorderRef.current) mediaRecorderRef.current.stop();
+      setIsListening(false);
+    } else {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+        // Use audio/mp4 for Safari/iOS compatibility, fallback to audio/webm
+        let mimeType = 'audio/webm';
+        if (!MediaRecorder.isTypeSupported(mimeType)) {
+          mimeType = 'audio/mp4';
+        }
+
+        const recorder = new MediaRecorder(stream, { mimeType });
+        mediaRecorderRef.current = recorder;
+        chunksRef.current = [];
+
+        recorder.ondataavailable = (e) => {
+          if (e.data.size > 0) chunksRef.current.push(e.data);
+        };
+
+        recorder.onstop = () => {
+          const audioBlob = new Blob(chunksRef.current, { type: mimeType });
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            const base64 = reader.result?.toString();
+            if (base64) {
+              // Send back to App.tsx with audio mime type
+              onSend("", base64, mimeType);
+            }
+          };
+          reader.readAsDataURL(audioBlob);
+          stream.getTracks().forEach(track => track.stop());
+        };
+
+        recorder.start();
+        setIsListening(true);
+      } catch (err) {
+        console.error("麦克风启动失败:", err);
+        alert("无法访问麦克风，请检查权限。");
+      }
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -102,7 +133,7 @@ const HackerTerminal: React.FC<HackerTerminalProps> = ({
                   <div className="mb-3 border border-green-500/30 rounded overflow-hidden relative group bg-black min-h-[100px] flex items-center justify-center">
                     {m.imageMimeType === 'application/pdf' ? (
                       <div className="flex flex-col items-center gap-2 p-6 text-red-500">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /></svg>
                         <span className="text-[10px] font-bold">PDF_INTEL_INJECTED</span>
                       </div>
                     ) : (
@@ -126,7 +157,7 @@ const HackerTerminal: React.FC<HackerTerminalProps> = ({
 
       <form onSubmit={handleSubmit} className="p-4 border-t border-green-900/30 bg-green-950/10 flex items-center gap-3">
         <button type="button" onClick={toggleListening} className={`w-10 h-10 rounded-full border flex items-center justify-center transition-all ${isListening ? 'bg-red-900/30 border-red-500 text-red-500' : 'bg-green-900/20 border-green-900 text-green-500'}`}>
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" /><path d="M19 10v2a7 7 0 0 1-14 0v-2" /><line x1="12" x2="12" y1="19" y2="22" /></svg>
         </button>
         <div className="flex-1 flex gap-2 items-center bg-black/40 px-3 py-1 rounded border border-green-900/30">
           <span className="text-green-900 font-bold">&gt;</span>

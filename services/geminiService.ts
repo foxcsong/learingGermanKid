@@ -15,10 +15,10 @@ export class GeminiService {
   }
 
   async processInput(
-    text: string,
+    text: string | undefined,
     history: { role: 'user' | 'model', parts: { text: string }[] }[],
     germanLevel: GermanLevel = 'A1',
-    imageBuffer?: string,
+    mediaBuffer?: string,
     mimeType: string = "image/jpeg"
   ) {
     const ai = this.getAI();
@@ -27,9 +27,11 @@ export class GeminiService {
     const systemInstruction = SYSTEM_PROTOCOLS.HACKER_BUDDY(germanLevel);
 
     try {
-      const parts: any[] = [{ text }];
-      if (imageBuffer) {
-        const cleanBase64 = imageBuffer.includes(',') ? imageBuffer.split(',')[1] : imageBuffer;
+      const parts: any[] = [];
+      if (text) parts.push({ text });
+
+      if (mediaBuffer) {
+        const cleanBase64 = mediaBuffer.includes(',') ? mediaBuffer.split(',')[1] : mediaBuffer;
         parts.push({
           inlineData: {
             mimeType: mimeType,
@@ -37,6 +39,9 @@ export class GeminiService {
           }
         });
       }
+
+      // If neither text nor media is provided, we can't do anything
+      if (parts.length === 0) throw new Error("EMPTY_INPUT");
 
       const response = await ai.models.generateContent({
         model: GEMINI_CONFIG.MODEL_NAME,

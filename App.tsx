@@ -16,6 +16,7 @@ const INITIAL_ACHIEVEMENTS: Achievement[] = [
   { id: 'first_hack', title: '初次入侵', description: '第一次成功用德语进行交流。', unlockedAt: null, icon: '🔓' },
   { id: 'spell_caster', title: '咒语师', description: '利用“秘密咒语”修正并提升了德语技能。', unlockedAt: null, icon: '🪄' },
   { id: 'visual_analyzer', title: '视觉分析官', description: '成功分析了图片或文档资料。', unlockedAt: null, icon: '👁️' },
+  { id: 'voice_hacker', title: '声波骇客', description: '通过注入原始语音指令与 AI 建立了共鸣。', unlockedAt: null, icon: '🎙️' },
   { id: 'level_5', title: '代码跑者', description: '黑客等级达到了 5 级。', unlockedAt: null, icon: '🏃' },
   { id: 'shadow_master', title: '影子大师', description: '在学习助手中完成了一次高质量跟读。', unlockedAt: null, icon: '🎤' },
 ];
@@ -226,25 +227,27 @@ const App: React.FC = () => {
     });
   };
 
-  const handleSendMessage = async (text: string, image?: string, mimeType?: string) => {
+  const handleSendMessage = async (text: string, media?: string, mimeType?: string) => {
     setIsLoading(true);
+    const isAudio = mimeType?.startsWith('audio/');
+
     const userMsg: Message = {
       id: Date.now().toString(),
       role: 'user',
-      text,
-      image,
-      imageMimeType: mimeType,
+      text: text || (isAudio ? "[语音同步中...]" : "[情报注入中...]"),
+      image: !isAudio ? media : undefined,
+      imageMimeType: !isAudio ? mimeType : undefined,
+      audioData: isAudio ? (media?.includes(',') ? media.split(',')[1] : media) : undefined,
       timestamp: Date.now()
     };
 
     const updatedMessages = [...activeConversation.messages, userMsg];
 
-    // Update local state first for responsiveness
     setSession(prev => ({
       ...prev,
       conversations: prev.conversations.map(c =>
         c.id === prev.activeConversationId
-          ? { ...c, messages: updatedMessages, updatedAt: Date.now(), title: c.title === '新对话' || c.title === '新任务' ? text.slice(0, 15) : c.title }
+          ? { ...c, messages: updatedMessages, updatedAt: Date.now(), title: c.title === '新对话' || c.title === '新任务' ? (text || '语音回复').slice(0, 15) : c.title }
           : c
       )
     }));
@@ -255,9 +258,11 @@ const App: React.FC = () => {
         parts: [{ text: m.text }]
       }));
 
-      const result = await gemini.processInput(text, history, session.germanLevel, image, mimeType);
+      // In the API, text can now be undefined for multimodal
+      const result = await gemini.processInput(text || undefined, history, session.germanLevel, media, mimeType);
 
-      if (image) unlockAchievement('visual_analyzer');
+      if (media && !isAudio) unlockAchievement('visual_analyzer');
+      if (isAudio) unlockAchievement('voice_hacker'); // Assuming this achievement exists or will be added
       if (result.intentSuccess) unlockAchievement('first_hack');
       if (result.geheimzauber) unlockAchievement('spell_caster');
 
