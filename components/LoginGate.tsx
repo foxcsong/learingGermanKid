@@ -104,7 +104,7 @@ const LoginGate: React.FC<LoginGateProps> = ({ onLoginSuccess }) => {
 
         <div className="mt-8 flex justify-between items-center opacity-30 group-hover:opacity-100 transition-opacity">
           <div className="text-[8px] text-green-900 font-mono">
-            NODE_VER: 2025.12.23.1825
+            NODE_VER: V20.1223.2000
           </div>
           <button
             onClick={() => {
