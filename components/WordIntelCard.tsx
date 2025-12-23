@@ -69,7 +69,10 @@ const WordIntelCard: React.FC<WordIntelCardProps> = ({ selection, context, level
         mimeType = 'audio/mp4';
       }
 
-      const recorder = new MediaRecorder(stream, { mimeType });
+      const recorder = new MediaRecorder(stream, {
+        mimeType,
+        audioBitsPerSecond: 16000 // 16kbps compression for human speech
+      });
       mediaRecorderRef.current = recorder;
       chunksRef.current = [];
 

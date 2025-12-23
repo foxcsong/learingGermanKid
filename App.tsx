@@ -148,9 +148,9 @@ const App: React.FC = () => {
       const sessionToSave: SessionData = {
         ...session,
         conversations: session.conversations.map(conv => {
-          // 只保留每条对话中最后的 3 条包含图片或语音的消息数据
+          // 只保留每条对话中最后的 10 条包含图片或语音的消息数据 (压缩后体积减小，可多留存一些)
           const messagesToSave = conv.messages.slice(-50).map((msg, index, array) => {
-            const isRecent = index >= array.length - 3;
+            const isRecent = index >= array.length - 10;
             return {
               ...msg,
               image: (msg.image && isRecent) ? msg.image : undefined,
