@@ -68,46 +68,46 @@ const App: React.FC = () => {
 
       api.getSession(currentUser).then(cloudSession => {
         if (cloudSession) {
-          console.log("[Sync] 成功载入云端档案，正在同步本地状态。");
+          console.log("[Sync] 云端数据存在，正在同步到本地...");
           setSession(cloudSession);
           setSyncStatus('synced');
         } else {
-          console.log("[Sync] 云端未发现档案，将尝试使用本地缓存。");
-
-          let initialSession = session;
+          console.log("[Sync] 云端无数据，检查本地缓存...");
           if (savedSessionRaw) {
             try {
-              const savedSession = JSON.parse(savedSessionRaw);
-              if (Array.isArray(savedSession.messages)) {
-                // 迁移遗留数据
-                const legacyConvId = 'legacy_' + Date.now();
-                initialSession = {
-                  conversations: [{ id: legacyConvId, title: '历史追踪', messages: savedSession.messages, updatedAt: Date.now() }],
-                  activeConversationId: legacyConvId,
-                  xp: savedSession.xp || 0, level: savedSession.level || 1, germanLevel: savedSession.germanLevel || 'A1', unlockedAchievements: savedSession.unlockedAchievements || []
+              const localData = JSON.parse(savedSessionRaw);
+              let migrated: SessionData;
+
+              if (Array.isArray(localData.messages)) {
+                console.log("[Sync] 正在迁移旧版消息格式...");
+                const legacyId = 'legacy_' + Date.now();
+                migrated = {
+                  conversations: [{ id: legacyId, title: '历史追踪', messages: localData.messages, updatedAt: Date.now() }],
+                  activeConversationId: legacyId,
+                  xp: localData.xp || 0, level: localData.level || 1, germanLevel: localData.germanLevel || 'A1', unlockedAchievements: localData.unlockedAchievements || []
                 };
               } else {
-                initialSession = savedSession;
+                migrated = localData;
               }
-              setSession(initialSession);
 
-              // 关键修复：如果云端没有但本地有，主动上传一次
-              console.log("[Sync] 正在将本地数据初始化到云端...");
-              api.saveSession(currentUser, initialSession).then(success => {
-                setSyncStatus(success ? 'synced' : 'local');
-              });
+              setSession(migrated);
+              setSyncStatus('local');
+
+              // 关键：提示用户上传
+              console.log("[Sync] 本地数据已准备好，建议点击指示灯上传到云端。");
             } catch (e) {
-              console.error("[Sync] 本地数据解析失败:", e);
+              console.error("[Sync] 本地缓存解析失败:", e);
               setSyncStatus('local');
             }
           } else {
+            console.log("[Sync] 本地无数据，保持初始状态。");
             setSyncStatus('local');
           }
         }
       }).catch((err) => {
-        console.error("[Sync] 通讯链路异常:", err);
+        console.error("[Sync] 云端通讯失败:", err);
         setSyncStatus('error');
-        setLastSyncError(err instanceof Error ? err.message : 'Unknown sync error');
+        setLastSyncError(err instanceof Error ? err.message : String(err));
       });
 
       if (savedAchievements) {
@@ -315,6 +315,14 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col p-4 md:p-8 space-y-6 max-w-[1400px] mx-auto animate-in fade-in duration-700">
+      {/* 强制显示的调试横幅，防止 UI 错位导致看不见状态 */}
+      <div className="bg-green-900/10 border border-green-500/20 p-1 text-[8px] flex justify-between uppercase opacity-50">
+        <span>Node: 01 // Ver: {BUILD_VERSION}</span>
+        <span className={syncStatus === 'error' ? 'text-red-500' : 'text-green-500'}>
+          Sync: {syncStatus} {lastSyncError ? `(${lastSyncError.slice(0, 20)})` : ''}
+        </span>
+      </div>
+
       <header className="flex flex-col md:flex-row justify-between items-center border-b border-green-900/50 pb-4 gap-4">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center text-black font-bold text-2xl animate-pulse">
