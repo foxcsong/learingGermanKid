@@ -5,6 +5,9 @@ interface LoginGateProps {
   onLoginSuccess: (username: string) => void;
 }
 
+// Normalizing username to avoid case-sensitivity sync issues
+const normalize = (u: string) => u.trim().toLowerCase();
+
 const LoginGate: React.FC<LoginGateProps> = ({ onLoginSuccess }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -25,8 +28,9 @@ const LoginGate: React.FC<LoginGateProps> = ({ onLoginSuccess }) => {
     }, {} as Record<string, string>);
 
     setTimeout(() => {
-      if (userMap[username] === password) {
-        onLoginSuccess(username);
+      const normalizedInput = normalize(username);
+      if (userMap[normalizedInput] === password || userMap[username] === password) {
+        onLoginSuccess(normalizedInput);
       } else {
         setError(true);
         setIsProcessing(false);
@@ -90,8 +94,8 @@ const LoginGate: React.FC<LoginGateProps> = ({ onLoginSuccess }) => {
             type="submit"
             disabled={isProcessing || !username || !password}
             className={`w-full py-4 font-black uppercase tracking-[0.3em] transition-all relative overflow-hidden group ${isProcessing
-                ? 'bg-green-950/20 text-green-900 cursor-not-allowed'
-                : 'bg-green-500 text-black hover:bg-green-400'
+              ? 'bg-green-950/20 text-green-900 cursor-not-allowed'
+              : 'bg-green-500 text-black hover:bg-green-400'
               }`}
           >
             {isProcessing ? '正在同步链路...' : '接入节点'}

@@ -22,7 +22,7 @@ const INITIAL_ACHIEVEMENTS: Achievement[] = [
 
 const GERMAN_LEVELS: GermanLevel[] = ['A1', 'A2', 'B1', 'B2'];
 
-const BUILD_VERSION = "2025.12.23.1930";
+const BUILD_VERSION = "V20.1223.2000";
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<string | null>(() => {
@@ -398,6 +398,28 @@ const App: React.FC = () => {
             }}
             onDelete={handleDeleteConversation}
           />
+          <div className="mt-4 pt-4 border-t border-green-900/30">
+            <button
+              onClick={() => {
+                if (confirm("FORCE PULL: 强制从云端下载数据并覆盖本地内容？此操作不可逆。")) {
+                  setSyncStatus('syncing');
+                  api.getSession(currentUser!).then(s => {
+                    if (s) {
+                      setSession(s);
+                      setSyncStatus('synced');
+                      alert("强制同步成功！");
+                    } else {
+                      alert("云端没有发现此用户的数据记录。");
+                      setSyncStatus('local');
+                    }
+                  }).catch(e => alert("拉取失败: " + e.message));
+                }
+              }}
+              className="w-full py-2 text-[10px] bg-blue-900/20 text-blue-400 border border-blue-900 hover:bg-blue-900 hover:text-white transition-all font-bold uppercase"
+            >
+              [ 强制从云端同步 / FORCE PULL ]
+            </button>
+          </div>
         </div>
 
         <div className="lg:col-span-2 flex flex-col h-[60vh] lg:h-full min-h-[500px]">
