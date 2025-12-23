@@ -170,6 +170,21 @@ const HackerTerminal: React.FC<HackerTerminalProps> = ({
                   </div>
                 )}
                 <div onMouseUp={(e) => handleMouseUp(e, m.text)} className="font-semibold leading-relaxed whitespace-pre-wrap">{m.text}</div>
+
+                {m.audioData && m.role === 'user' && (
+                  <div className="mt-2 flex justify-end">
+                    <button
+                      onClick={() => onPlayAudio(m.audioData!)}
+                      className="bg-green-500/20 border border-green-500/40 hover:bg-green-500/40 px-3 py-1.5 rounded flex items-center gap-2 transition-all group active:scale-95"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-green-400 group-hover:text-green-300">
+                        <polygon points="5 3 19 12 5 21 5 3" />
+                      </svg>
+                      <span className="text-[10px] font-bold text-green-400 uppercase tracking-tighter">播放录音</span>
+                    </button>
+                  </div>
+                )}
+
                 {m.translation && <div className="mt-2 pt-2 border-t border-blue-900/20 text-blue-300/70 text-xs italic">{m.translation}</div>}
               </div>
               {m.geheimzauber && <div onMouseUp={(e) => handleMouseUp(e, m.geheimzauber!)} className="mt-2 p-2 bg-yellow-950/20 border border-yellow-900/50 rounded text-xs text-yellow-400 text-left"><span className="font-bold">✨ SPELL:</span> {m.geheimzauber}</div>}
