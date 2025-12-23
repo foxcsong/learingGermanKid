@@ -16,11 +16,21 @@ const WordIntelCard: React.FC<WordIntelCardProps> = ({ selection, context, level
   const [intel, setIntel] = useState<{ meaning: string; tip: string } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRecording, setIsRecording] = useState(false);
+  const [recordedUrl, setRecordedUrl] = useState<string | null>(null);
   const [evaluation, setEvaluation] = useState<{ score: number; tip: string } | null>(null);
   const [isEvaluating, setIsEvaluating] = useState(false);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
+
+  // 这里的清理逻辑确保组件卸载或 URL 更新时释放内存
+  useEffect(() => {
+    return () => {
+      if (recordedUrl) {
+        URL.revokeObjectURL(recordedUrl);
+      }
+    };
+  }, [recordedUrl]);
 
   useEffect(() => {
     const fetchIntel = async () => {
@@ -44,13 +54,27 @@ const WordIntelCard: React.FC<WordIntelCardProps> = ({ selection, context, level
 
   const startRecording = async () => {
     try {
+      // 每次开始新录音前清理旧数据
+      if (recordedUrl) {
+        URL.revokeObjectURL(recordedUrl);
+        setRecordedUrl(null);
+      }
+      setEvaluation(null);
+
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const recorder = new MediaRecorder(stream);
       mediaRecorderRef.current = recorder;
       chunksRef.current = [];
-      recorder.ondataavailable = (e) => chunksRef.current.push(e.data);
+
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunksRef.current.push(e.data);
+      };
+
       recorder.onstop = async () => {
         const audioBlob = new Blob(chunksRef.current, { type: 'audio/webm' });
+        const url = URL.createObjectURL(audioBlob);
+        setRecordedUrl(url);
+
         const reader = new FileReader();
         reader.onloadend = async () => {
           const base64 = reader.result?.toString().split(',')[1];
@@ -67,18 +91,31 @@ const WordIntelCard: React.FC<WordIntelCardProps> = ({ selection, context, level
           }
         };
         reader.readAsDataURL(audioBlob);
+        
+        // 停止所有轨道以关闭麦克风占用指示灯
+        stream.getTracks().forEach(track => track.stop());
       };
+
       recorder.start();
       setIsRecording(true);
     } catch (err) {
       console.error("跟读录音失败:", err);
+      alert("无法访问麦克风，请检查权限。");
     }
   };
 
   const stopRecording = () => {
-    mediaRecorderRef.current?.stop();
-    setIsRecording(false);
-    mediaRecorderRef.current?.stream.getTracks().forEach(track => track.stop());
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+    }
+  };
+
+  const playMyRecording = () => {
+    if (recordedUrl) {
+      const audio = new Audio(recordedUrl);
+      audio.play();
+    }
   };
 
   return (
@@ -116,37 +153,72 @@ const WordIntelCard: React.FC<WordIntelCardProps> = ({ selection, context, level
           </div>
         ) : null}
 
-        <div className="flex gap-2 border-t border-green-900/30 pt-3">
-          <button 
-            onClick={handleSpeak}
-            className="flex-1 bg-green-900/20 border border-green-900/50 text-green-500 py-1.5 rounded flex items-center justify-center gap-2 hover:bg-green-500 hover:text-black transition-all"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
-            <span className="text-[10px] font-bold">发音</span>
-          </button>
-          <button 
-            onMouseDown={startRecording}
-            onMouseUp={stopRecording}
-            className={`flex-[1.5] py-1.5 rounded border text-[10px] font-bold uppercase transition-all flex items-center justify-center gap-2 ${
-              isRecording 
-              ? 'bg-red-900/40 border-red-500 text-red-500 animate-pulse' 
-              : 'bg-blue-900/20 border-blue-900/50 text-blue-400 hover:bg-blue-900/40'
-            }`}
-          >
-             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
-            {isRecording ? '录音中...' : '按住跟读'}
-          </button>
+        <div className="space-y-2 border-t border-green-900/30 pt-3">
+          <div className="flex gap-2">
+            <button 
+              onClick={handleSpeak}
+              className="flex-1 bg-green-900/20 border border-green-900/50 text-green-500 py-2 rounded flex items-center justify-center gap-2 hover:bg-green-500 hover:text-black transition-all"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+              <span className="text-[10px] font-bold">听原音</span>
+            </button>
+
+            <button 
+              onClick={isRecording ? stopRecording : startRecording}
+              className={`flex-[1.5] py-2 rounded border text-[10px] font-bold uppercase transition-all flex items-center justify-center gap-2 ${
+                isRecording 
+                ? 'bg-red-900/40 border-red-500 text-red-500 animate-pulse shadow-[0_0_10px_rgba(239,68,68,0.3)]' 
+                : 'bg-blue-900/20 border-blue-900/50 text-blue-400 hover:bg-blue-900/40'
+              }`}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                {isRecording ? (
+                  <rect x="6" y="6" width="12" height="12" fill="currentColor"/>
+                ) : (
+                  <circle cx="12" cy="12" r="6" fill="currentColor" className="opacity-50"/>
+                )}
+              </svg>
+              {isRecording ? '点击停止并分析' : recordedUrl ? '重新录制' : '点击跟读'}
+            </button>
+          </div>
+
+          {recordedUrl && !isRecording && (
+            <button 
+              onClick={playMyRecording}
+              className="w-full bg-blue-500/10 border border-blue-500/30 text-blue-400 py-1.5 rounded flex items-center justify-center gap-2 hover:bg-blue-500/20 text-[10px] font-bold uppercase transition-all"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+              回放我的发音
+            </button>
+          )}
         </div>
 
-        {evaluation && (
-          <div className="mt-2 bg-black/60 border border-blue-900/40 p-2 rounded animate-in fade-in zoom-in-95">
-             <div className="flex justify-between items-center mb-1">
-              <span className="text-[9px] text-blue-500 font-bold uppercase">跟读同步率</span>
-              <span className="text-xs font-black text-blue-400">{evaluation.score}%</span>
-            </div>
-            <div className="text-[9px] text-blue-300 leading-tight italic">
-              <span className="text-blue-500 font-bold not-italic">建议:</span> {evaluation.tip}
-            </div>
+        {(isEvaluating || evaluation) && (
+          <div className="mt-2 bg-black/60 border border-blue-900/40 p-3 rounded animate-in fade-in zoom-in-95">
+            {isEvaluating ? (
+              <div className="text-[10px] text-blue-500 animate-pulse font-mono flex items-center gap-2">
+                <span className="w-1 h-1 bg-blue-500 rounded-full animate-ping"></span>
+                正在进行生物特征比对...
+              </div>
+            ) : evaluation ? (
+              <>
+                <div className="flex justify-between items-center mb-1">
+                  <span className="text-[9px] text-blue-500 font-bold uppercase tracking-widest">跟读同步率</span>
+                  <span className={`text-xs font-black ${evaluation.score > 80 ? 'text-green-500' : 'text-blue-400'}`}>
+                    {evaluation.score}%
+                  </span>
+                </div>
+                <div className="w-full h-1 bg-blue-900/20 rounded-full mb-2 overflow-hidden">
+                  <div 
+                    className={`h-full transition-all duration-1000 ${evaluation.score > 80 ? 'bg-green-500' : 'bg-blue-500'}`}
+                    style={{ width: `${evaluation.score}%` }}
+                  ></div>
+                </div>
+                <div className="text-[9px] text-blue-300 leading-tight italic">
+                  <span className="text-blue-500 font-bold not-italic">解析意见:</span> {evaluation.tip}
+                </div>
+              </>
+            ) : null}
           </div>
         )}
       </div>
