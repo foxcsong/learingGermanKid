@@ -23,7 +23,7 @@ const LoginGate: React.FC<LoginGateProps> = ({ onLoginSuccess }) => {
     const rawUsers = process.env.AUTH_USERS || 'admin:hacker';
     const userMap = rawUsers.split(',').reduce((acc, curr) => {
       const [u, p] = curr.split(':');
-      if (u && p) acc[u.trim()] = p.trim();
+      if (u && p) acc[normalize(u)] = p.trim();
       return acc;
     }, {} as Record<string, string>);
 

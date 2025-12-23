@@ -22,11 +22,19 @@ const INITIAL_ACHIEVEMENTS: Achievement[] = [
 
 const GERMAN_LEVELS: GermanLevel[] = ['A1', 'A2', 'B1', 'B2'];
 
-const BUILD_VERSION = "V20.1223.2000";
+const BUILD_VERSION = "V2100.Final.Sync";
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<string | null>(() => {
-    return localStorage.getItem('hacker_current_user');
+    const saved = localStorage.getItem('hacker_current_user');
+    // Migration: ensure username is lowercase for consistent sync
+    if (saved && saved !== saved.toLowerCase()) {
+      const lowered = saved.toLowerCase();
+      localStorage.setItem('hacker_current_user', lowered);
+      console.log(`[Migration] User ${saved} migrated to ${lowered}`);
+      return lowered;
+    }
+    return saved;
   });
 
   const [session, setSession] = useState<SessionData>(() => {
