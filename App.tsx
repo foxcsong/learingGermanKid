@@ -307,13 +307,6 @@ const App: React.FC = () => {
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-2xl font-bold tracking-tighter text-green-400">德语小黑客 <span className="text-xs font-normal border border-green-800 px-1 rounded text-green-600">V2.0</span></h1>
-              {/* Mobile History Toggle - Integrated */}
-              <button
-                onClick={() => setShowMobileHistory(!showMobileHistory)}
-                className="lg:hidden p-1 border border-green-900 text-green-500 text-[10px] font-bold rounded bg-green-900/10"
-              >
-                [历史/History]
-              </button>
             </div>
             <p className="text-xs text-green-700 uppercase tracking-widest">用户: <span className="text-green-500 font-bold">{currentUser}</span> // 节点: 01</p>
           </div>
@@ -326,12 +319,15 @@ const App: React.FC = () => {
         <div className="flex gap-6 items-center">
           <div className="text-right flex items-center gap-2">
             <div>
-              <div className="text-[10px] text-green-900 font-bold uppercase tracking-widest">
+              <div
+                className="text-[10px] text-green-900 font-bold uppercase tracking-widest cursor-pointer hover:text-green-500 transition-colors"
+                onClick={() => lastSyncError && alert(`同步错误详情:\n${lastSyncError}\n\n建议排查：\n1. Cloudflare Pages 绑定了 D1 吗？\n2. 绑定名是 DB 吗？\n3. 修改完绑定重新部署了吗？`)}
+              >
                 {syncStatus === 'synced' && '● 链路已加密同步'}
-                {syncStatus === 'syncing' && '◌ 正在注入云端...'}
+                {syncStatus === 'syncing' && <span className="animate-pulse">◌ 正在注入云端...</span>}
                 {syncStatus === 'error' && (
-                  <span className="text-red-900" title={lastSyncError || ''}>
-                    × 链路同步故障 {lastSyncError?.includes('bound') ? '(配置未完成)' : ''}
+                  <span className="text-red-900">
+                    × 链路同步故障 (点击查看)
                   </span>
                 )}
                 {syncStatus === 'local' && '○ 仅本地节点'}
@@ -381,6 +377,14 @@ const App: React.FC = () => {
         </div>
       </main>
       <AudioPlayer audioData={currentAudio} onEnded={() => setCurrentAudio(null)} />
+
+      {/* Mobile Floating History Button */}
+      <button
+        onClick={() => setShowMobileHistory(true)}
+        className="lg:hidden fixed bottom-6 right-6 w-14 h-14 bg-green-500 text-black rounded-full shadow-[0_0_20px_rgba(34,197,94,0.5)] flex items-center justify-center font-bold text-xs z-40 border-2 border-green-400 active:scale-95 transition-all"
+      >
+        HISTORY
+      </button>
     </div>
   );
 };
