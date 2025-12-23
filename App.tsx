@@ -50,7 +50,12 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (currentUser) {
-      localStorage.setItem(`hacker_session_${currentUser}`, JSON.stringify(session));
+      // Logic to prevent localStorage overflow: only keep last 50 messages
+      const sessionToSave = {
+        ...session,
+        messages: session.messages.slice(-50)
+      };
+      localStorage.setItem(`hacker_session_${currentUser}`, JSON.stringify(sessionToSave));
       localStorage.setItem(`hacker_achievements_${currentUser}`, JSON.stringify(achievements));
     }
   }, [session, achievements, currentUser]);
@@ -76,13 +81,14 @@ const App: React.FC = () => {
     }));
   };
 
-  const handleSendMessage = async (text: string, image?: string) => {
+  const handleSendMessage = async (text: string, image?: string, mimeType?: string) => {
     setIsLoading(true);
     const userMsg: Message = {
       id: Date.now().toString(),
       role: 'user',
       text,
-      image, // Store the injected image
+      image, // Data URL
+      imageMimeType: mimeType,
       timestamp: Date.now()
     };
 
@@ -95,7 +101,7 @@ const App: React.FC = () => {
         parts: [{ text: m.text }]
       }));
 
-      const result = await gemini.processInput(text, history, session.germanLevel, image);
+      const result = await gemini.processInput(text, history, session.germanLevel, image, mimeType);
       
       if (image) unlockAchievement('visual_analyzer');
       if (result.intentSuccess) unlockAchievement('first_hack');
