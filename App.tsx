@@ -43,20 +43,56 @@ const App: React.FC = () => {
       const savedSession = localStorage.getItem(sessionKey);
       const savedAchievements = localStorage.getItem(achievementsKey);
 
-      if (savedSession) setSession(JSON.parse(savedSession));
-      if (savedAchievements) setAchievements(JSON.parse(savedAchievements));
+      if (savedSession) {
+        try {
+          setSession(JSON.parse(savedSession));
+        } catch (e) {
+          console.error("Failed to parse session", e);
+        }
+      }
+      if (savedAchievements) {
+        try {
+          setAchievements(JSON.parse(savedAchievements));
+        } catch (e) {
+          console.error("Failed to parse achievements", e);
+        }
+      }
     }
   }, [currentUser]);
 
   useEffect(() => {
     if (currentUser) {
-      // Logic to prevent localStorage overflow: only keep last 50 messages
+      // 核心修复：防止 LocalStorage 溢出
+      // 我们只保留最后 30 条消息，且只有最后 3 条消息允许包含庞大的图片 Base64 数据
+      const messagesToSave = session.messages.slice(-30).map((msg, index, array) => {
+        const isRecentImage = index >= array.length - 3;
+        if (msg.image && !isRecentImage) {
+          return { ...msg, image: undefined }; // 清除旧消息中的图片数据以节省空间
+        }
+        return msg;
+      });
+
       const sessionToSave = {
         ...session,
-        messages: session.messages.slice(-50)
+        messages: messagesToSave
       };
-      localStorage.setItem(`hacker_session_${currentUser}`, JSON.stringify(sessionToSave));
-      localStorage.setItem(`hacker_achievements_${currentUser}`, JSON.stringify(achievements));
+
+      try {
+        localStorage.setItem(`hacker_session_${currentUser}`, JSON.stringify(sessionToSave));
+        localStorage.setItem(`hacker_achievements_${currentUser}`, JSON.stringify(achievements));
+      } catch (e) {
+        console.warn("存储空间接近上限，正在紧急清理旧数据...");
+        // 极端情况下：清除所有图片数据
+        const emergencySave = {
+          ...sessionToSave,
+          messages: messagesToSave.map(m => ({ ...m, image: undefined }))
+        };
+        try {
+          localStorage.setItem(`hacker_session_${currentUser}`, JSON.stringify(emergencySave));
+        } catch (e2) {
+          console.error("严重存储故障：无法写入 localStorage");
+        }
+      }
     }
   }, [session, achievements, currentUser]);
 
@@ -87,7 +123,7 @@ const App: React.FC = () => {
       id: Date.now().toString(),
       role: 'user',
       text,
-      image, // Data URL
+      image,
       imageMimeType: mimeType,
       timestamp: Date.now()
     };
@@ -129,7 +165,18 @@ const App: React.FC = () => {
         level: Math.floor((prev.xp + 20) / 100) + 1
       }));
     } catch (error) {
-      console.error(error);
+      console.error("AI 响应异常:", error);
+      // 错误处理：向终端发送错误信息
+      const errorMsg: Message = {
+        id: (Date.now() + 2).toString(),
+        role: 'ai',
+        text: "SEC_ERROR: 链路不稳定，情报解析中断。请尝试重新注入。 (可能是文件过大或网络超时)",
+        timestamp: Date.now()
+      };
+      setSession(prev => ({
+        ...prev,
+        messages: [...newMessages, errorMsg]
+      }));
     } finally {
       setIsLoading(false);
     }
