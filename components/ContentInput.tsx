@@ -16,7 +16,7 @@ const ContentInput: React.FC<ContentInputProps> = ({ onUpload, isDisabled }) => 
       const mimeType = file.type;
 
       if (mimeType === 'application/pdf') {
-        onUpload("Hacker-Buddy, scanne dieses Dokument. Was können wir hier lernen?", result, mimeType);
+        onUpload("Hacker-Buddy, scanne dieses Dokument und unterrichte mich über den Inhalt!", result, mimeType);
       } else if (mimeType.startsWith('image/')) {
         const img = new Image();
         img.onload = () => {
@@ -47,7 +47,7 @@ const ContentInput: React.FC<ContentInputProps> = ({ onUpload, isDisabled }) => 
 
           // 降低质量至 0.7 以确保顺利通过网络传输和存储
           const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
-          onUpload("Hacker-Buddy, analysiere dieses Bild. Lass uns darüber sprechen!", compressedBase64, 'image/jpeg');
+          onUpload("Hacker-Buddy, werde mein Lehrer für dieses Bild. Analysiere es und bring mir etwas bei!", compressedBase64, 'image/jpeg');
         };
         img.src = result;
       }
@@ -65,7 +65,7 @@ const ContentInput: React.FC<ContentInputProps> = ({ onUpload, isDisabled }) => 
   const handleLinkSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (url.trim()) {
-      onUpload(`Prüfe diesen Link: ${url}. Was ist dein Urteil?`);
+      onUpload(`Hacker-Buddy, analysiere diesen Link und unterrichte mich: ${url}`);
       setUrl('');
     }
   };

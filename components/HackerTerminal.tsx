@@ -230,7 +230,13 @@ const HackerTerminal: React.FC<HackerTerminalProps> = ({
             </div>
           </div>
         ))}
-        {isLoading && <div className="text-blue-500 text-xs animate-pulse font-mono">[ 数据包解析中... 正在访问神经网络 ]</div>}
+        {isLoading && (
+          <div className="text-blue-500 text-xs animate-pulse font-mono py-2">
+            {messages.length > 0 && messages[messages.length - 1].role === 'user' && (messages[messages.length - 1].image || messages[messages.length - 1].text?.includes('Hacker-Buddy'))
+              ? '[ 正在深度研究材料，组织教学内容... ]'
+              : '[ 数据包解析中... 正在访问神经网络 ]'}
+          </div>
+        )}
       </div>
 
       <form onSubmit={handleSubmit} className="p-4 border-t border-green-900/30 bg-green-950/10 flex items-center gap-3">
