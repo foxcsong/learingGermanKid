@@ -38,21 +38,38 @@ const HackerTerminal: React.FC<HackerTerminalProps> = ({
     }
   }, [messages, isLoading]);
 
-  const handleMouseUp = async (e: React.MouseEvent, msgContext: string) => {
-    const sel = window.getSelection();
-    const text = sel?.toString().trim();
-    if (text && text.length > 0) {
-      const rect = sel?.getRangeAt(0).getBoundingClientRect();
-      if (rect) {
-        setSelection({ text, context: msgContext, x: rect.left, y: rect.top + window.scrollY });
-        setQuickIntel(null); setShowIntelCard(false);
-        setIsQuickIntelLoading(true);
-        try {
-          const intel = await gemini.getQuickIntel(text);
-          setQuickIntel(intel);
-        } catch { setQuickIntel("分析失败"); } finally { setIsQuickIntelLoading(false); }
+  const handleSelection = (msgContext: string) => {
+    // 手机端划词需要一小段延迟，等系统菜单和选区稳定后再抓取
+    setTimeout(async () => {
+      const sel = window.getSelection();
+      const text = sel?.toString().trim();
+
+      if (text && text.length > 0 && sel && sel.rangeCount > 0) {
+        const rect = sel.getRangeAt(0).getBoundingClientRect();
+        if (rect) {
+          setSelection({
+            text,
+            context: msgContext,
+            x: rect.left,
+            y: rect.top + window.scrollY
+          });
+          setQuickIntel(null);
+          setShowIntelCard(false);
+          setIsQuickIntelLoading(true);
+          try {
+            const intel = await gemini.getQuickIntel(text);
+            setQuickIntel(intel);
+          } catch {
+            setQuickIntel("分析失败");
+          } finally {
+            setIsQuickIntelLoading(false);
+          }
+        }
+      } else {
+        setSelection(null);
+        setQuickIntel(null);
       }
-    } else { setSelection(null); setQuickIntel(null); }
+    }, 150);
   };
 
   const recordingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -132,7 +149,17 @@ const HackerTerminal: React.FC<HackerTerminalProps> = ({
   return (
     <div className="flex flex-col flex-1 bg-black border border-green-900/50 rounded-lg overflow-hidden shadow-[0_0_20px_rgba(0,255,65,0.05)] relative font-mono">
       {selection && !showIntelCard && (
-        <button onClick={() => setShowIntelCard(true)} className="fixed z-[99] bg-green-500 text-black px-3 py-1.5 text-[10px] font-bold rounded shadow-[0_0_15px_rgba(0,255,65,0.6)] uppercase tracking-tighter flex items-center gap-2" style={{ left: Math.min(window.innerWidth - 150, selection.x), top: selection.y - 45 }}>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            setShowIntelCard(true);
+          }}
+          className="fixed z-[1000] bg-green-500 text-black px-4 py-2.5 text-[11px] font-bold rounded-full shadow-[0_0_25px_rgba(0,255,65,0.8)] uppercase tracking-tighter flex items-center gap-2 active:scale-95 touch-none"
+          style={{
+            left: Math.max(10, Math.min(window.innerWidth - 160, selection.x)),
+            top: selection.y - 60
+          }}
+        >
           {isQuickIntelLoading ? '扫描中...' : quickIntel || "[点击解析]"}
         </button>
       )}
@@ -169,7 +196,12 @@ const HackerTerminal: React.FC<HackerTerminalProps> = ({
                     <div className="absolute top-0 left-0 bg-green-500 text-black text-[8px] px-1 font-bold">DATA_CAPTURE</div>
                   </div>
                 )}
-                <div onMouseUp={(e) => handleMouseUp(e, m.text)} className="font-semibold leading-relaxed whitespace-pre-wrap">{m.text}</div>
+                <div
+                  onPointerUp={() => handleSelection(m.text)}
+                  className="font-semibold leading-relaxed whitespace-pre-wrap select-text touch-auto"
+                >
+                  {m.text}
+                </div>
 
                 {m.audioData && m.role === 'user' && (
                   <div className="mt-2 flex justify-end">
@@ -187,7 +219,14 @@ const HackerTerminal: React.FC<HackerTerminalProps> = ({
 
                 {m.translation && <div className="mt-2 pt-2 border-t border-blue-900/20 text-blue-300/70 text-xs italic">{m.translation}</div>}
               </div>
-              {m.geheimzauber && <div onMouseUp={(e) => handleMouseUp(e, m.geheimzauber!)} className="mt-2 p-2 bg-yellow-950/20 border border-yellow-900/50 rounded text-xs text-yellow-400 text-left"><span className="font-bold">✨ SPELL:</span> {m.geheimzauber}</div>}
+              {m.geheimzauber && (
+                <div
+                  onPointerUp={() => handleSelection(m.geheimzauber!)}
+                  className="mt-2 p-2 bg-yellow-950/20 border border-yellow-900/50 rounded text-xs text-yellow-400 text-left select-text touch-auto"
+                >
+                  <span className="font-bold">✨ SPELL:</span> {m.geheimzauber}
+                </div>
+              )}
             </div>
           </div>
         ))}

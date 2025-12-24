@@ -143,7 +143,7 @@ const WordIntelCard: React.FC<WordIntelCardProps> = ({ selection, context, level
   }
   return (
     <div
-      className="fixed z-[100] w-72 bg-black border border-green-500 rounded shadow-[0_0_30px_rgba(0,255,65,0.2)] flex flex-col max-h-[85vh] animate-in zoom-in-95 overflow-hidden"
+      className="fixed z-[1100] w-[90vw] max-w-[300px] bg-black border border-green-500 rounded-lg shadow-[0_0_50px_rgba(0,0,0,0.9),0_0_20px_rgba(0,255,65,0.2)] flex flex-col max-h-[85vh] animate-in zoom-in-95 overflow-hidden touch-auto select-none"
       style={cardStyle}
     >
       <audio ref={audioPlaybackRef} className="hidden" />
@@ -151,8 +151,12 @@ const WordIntelCard: React.FC<WordIntelCardProps> = ({ selection, context, level
         <span className="text-[10px] text-green-400 font-bold uppercase tracking-widest flex items-center gap-2">
           <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span> 情报中心_INTEL
         </span>
-        <button onClick={onClose} className="text-green-900 hover:text-green-500 transition-colors">
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+        <button
+          onClick={onClose}
+          className="text-green-900 hover:text-green-500 transition-colors w-8 h-8 flex items-center justify-center -mr-1 active:scale-95 touch-manipulation"
+          aria-label="关闭"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
         </button>
       </div>
 
@@ -181,27 +185,27 @@ const WordIntelCard: React.FC<WordIntelCardProps> = ({ selection, context, level
           <div className="flex gap-2">
             <button
               onClick={handleSpeak}
-              className="flex-1 bg-green-900/20 border border-green-900/50 text-green-500 py-2 rounded flex items-center justify-center gap-2 hover:bg-green-500 hover:text-black transition-all"
+              className="flex-1 bg-green-900/20 border border-green-900/50 text-green-500 py-3 rounded-md flex items-center justify-center gap-2 hover:bg-green-500 hover:text-black transition-all active:scale-95 touch-manipulation"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 5L6 9H2v6h4l5 4V5z" /><path d="M15.54 8.46a5 5 0 0 1 0 7.07" /></svg>
-              <span className="text-[10px] font-bold">听原音</span>
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 5L6 9H2v6h4l5 4V5z" /><path d="M15.54 8.46a5 5 0 0 1 0 7.07" /></svg>
+              <span className="text-[11px] font-bold">听原音</span>
             </button>
 
             <button
               onClick={isRecording ? stopRecording : startRecording}
-              className={`flex-[1.5] py-2 rounded border text-[10px] font-bold uppercase transition-all flex items-center justify-center gap-2 ${isRecording
+              className={`flex-[1.5] py-3 rounded-md border text-[11px] font-bold uppercase transition-all flex items-center justify-center gap-2 active:scale-95 touch-manipulation ${isRecording
                 ? 'bg-red-900/40 border-red-500 text-red-500 animate-pulse shadow-[0_0_10px_rgba(239,68,68,0.3)]'
                 : 'bg-blue-900/20 border-blue-900/50 text-blue-400 hover:bg-blue-900/40'
                 }`}
             >
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 {isRecording ? (
                   <rect x="6" y="6" width="12" height="12" fill="currentColor" />
                 ) : (
                   <circle cx="12" cy="12" r="6" fill="currentColor" className="opacity-50" />
                 )}
               </svg>
-              {isRecording ? '点击停止并分析' : recordedUrl ? '重新录制' : '点击跟读'}
+              {isRecording ? '停止分析' : recordedUrl ? '重录' : '点击跟读'}
             </button>
           </div>
 
