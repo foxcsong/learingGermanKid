@@ -16,7 +16,7 @@ const ContentInput: React.FC<ContentInputProps> = ({ onUpload, isDisabled }) => 
       const mimeType = file.type;
 
       if (mimeType === 'application/pdf') {
-        onUpload("黑客伙伴，帮我分析这份文档。我能从中学习到什么？", result, mimeType);
+        onUpload("Hacker-Buddy, scanne dieses Dokument. Was können wir hier lernen?", result, mimeType);
       } else if (mimeType.startsWith('image/')) {
         const img = new Image();
         img.onload = () => {
@@ -44,17 +44,17 @@ const ContentInput: React.FC<ContentInputProps> = ({ onUpload, isDisabled }) => 
           canvas.height = height;
           const ctx = canvas.getContext('2d');
           ctx?.drawImage(img, 0, 0, width, height);
-          
+
           // 降低质量至 0.7 以确保顺利通过网络传输和存储
           const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
-          onUpload("黑客伙伴，帮我分析这张图。我能从中学习到什么？", compressedBase64, 'image/jpeg');
+          onUpload("Hacker-Buddy, analysiere dieses Bild. Lass uns darüber sprechen!", compressedBase64, 'image/jpeg');
         };
         img.src = result;
       }
     };
     reader.readAsDataURL(file);
   };
-  
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -65,7 +65,7 @@ const ContentInput: React.FC<ContentInputProps> = ({ onUpload, isDisabled }) => 
   const handleLinkSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (url.trim()) {
-      onUpload(`让我们聊聊这个视频：${url}`);
+      onUpload(`Prüfe diesen Link: ${url}. Was ist dein Urteil?`);
       setUrl('');
     }
   };
@@ -77,9 +77,9 @@ const ContentInput: React.FC<ContentInputProps> = ({ onUpload, isDisabled }) => 
           上传视觉情报 (图片/PDF)
         </label>
         <div className={`relative border-2 border-dashed rounded-lg p-4 text-center transition-colors group ${isDisabled ? 'border-green-900/10 cursor-not-allowed opacity-50' : 'border-green-900/30 hover:border-green-500 cursor-pointer'}`}>
-          <input 
-            type="file" 
-            accept="image/*,application/pdf" 
+          <input
+            type="file"
+            accept="image/*,application/pdf"
             onChange={handleFileChange}
             disabled={isDisabled}
             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
@@ -95,7 +95,7 @@ const ContentInput: React.FC<ContentInputProps> = ({ onUpload, isDisabled }) => 
           注入目标链接 (YOUTUBE/文章)
         </label>
         <form onSubmit={handleLinkSubmit} className="flex gap-2">
-          <input 
+          <input
             type="url"
             value={url}
             onChange={(e) => setUrl(e.target.value)}
@@ -103,7 +103,7 @@ const ContentInput: React.FC<ContentInputProps> = ({ onUpload, isDisabled }) => 
             disabled={isDisabled}
             className="flex-1 bg-black border border-green-900/30 rounded px-3 py-2 text-xs text-green-400 outline-none focus:border-green-500 placeholder:opacity-30 disabled:opacity-50"
           />
-          <button 
+          <button
             type="submit"
             disabled={isDisabled || !url}
             className="bg-green-900/20 text-green-500 border border-green-900/50 px-3 py-1 rounded text-xs hover:bg-green-500 hover:text-black transition-all font-bold uppercase disabled:opacity-30"
